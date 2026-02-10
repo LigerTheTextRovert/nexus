@@ -1,0 +1,75 @@
+# Binaries for programs and plugins
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+*.test
+*.out
+/bin/
+/dist/
+
+# Go workspace file
+go.work
+
+# Dependency directories
+vendor/
+node_modules/
+
+# Go modules
+go.sum
+
+# Environment variables
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# IDE and editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Logs
+*.log
+logs/
+
+# Temporary files
+tmp/
+temp/
+
+# Coverage
+coverage.txt
+coverage.html
+coverage.out
+profile.out
+
+# Build artifacts
+frontend-gateway  # Binary name
+gateway           # Binary name
+
+# Docker
+docker-compose.override.yml
+
+# Config overrides
+configs/local.yaml
+configs/development.local.yaml
+
+# Test data
+testdata/
+
+# Kubernetes
+*.yaml
+!configs/*.yaml  # Keep our config yamls
