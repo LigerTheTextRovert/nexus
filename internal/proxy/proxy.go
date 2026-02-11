@@ -7,12 +7,12 @@ import (
 )
 
 func ProxyHandler(w http.ResponseWriter, r *http.Request) {
-	pRes, _ := http.NewRequest(r.Method, "http://localhost:3001"+r.URL.Path, r.Body)
+	proxyRequest, _ := http.NewRequest(r.Method, "http://localhost:3001"+r.URL.Path, r.Body)
 
-	pRes.Header = r.Header.Clone()
+	proxyRequest.Header = r.Header.Clone()
 
 	client := &http.Client{}
-	res, err := client.Do(pRes)
+	res, err := client.Do(proxyRequest)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
