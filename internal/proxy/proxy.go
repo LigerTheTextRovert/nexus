@@ -4,10 +4,12 @@ package proxy
 import (
 	"io"
 	"net/http"
+
+	"github.com/LigerTheTextRovert/nexus/internal/config"
 )
 
-func ProxyHandler(w http.ResponseWriter, r *http.Request) {
-	proxyRequest, _ := http.NewRequest(r.Method, "http://localhost:3001"+r.URL.Path, r.Body)
+func ProxyHandler(w http.ResponseWriter, r *http.Request, c *config.Config) {
+	proxyRequest, _ := http.NewRequest(r.Method, c.BackendURL+r.URL.Path, r.Body)
 
 	proxyRequest.Header = r.Header.Clone()
 
