@@ -1,4 +1,4 @@
-module github.com/LigerTheTextRovert/soundcloud-tui
+module github.com/LigerTheTextRovert/nexus
 
 go 1.25.5
 
