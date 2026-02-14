@@ -8,7 +8,6 @@ import (
 
 	"github.com/LigerTheTextRovert/nexus/internal/config"
 	"github.com/LigerTheTextRovert/nexus/internal/logging"
-	"github.com/LigerTheTextRovert/nexus/internal/proxy"
 )
 
 func main() {
@@ -24,10 +23,11 @@ func main() {
 	})
 
 	http.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
-		handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			proxy.ProxyHandler(w, r, &cfg)
+		healtHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.WriteHeader(http.StatusOK)
+			w.Write([]byte(`{"status" : "healthy"}`))
 		})
-		logging.LoggingMiddleware(handler).ServeHTTP(w, r)
+		logging.LoggingMiddleware(healtHandler).ServeHTTP(w, r)
 	})
 
 	port := cfg.Port
