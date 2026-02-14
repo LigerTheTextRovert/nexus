@@ -1,5 +1,5 @@
-// Package gateway
-package gateway
+// Package main
+package main
 
 import (
 	"fmt"
@@ -7,13 +7,14 @@ import (
 	"net/http"
 
 	"github.com/LigerTheTextRovert/nexus/internal/config"
+	"github.com/LigerTheTextRovert/nexus/internal/logging"
 	"github.com/LigerTheTextRovert/nexus/internal/proxy"
 )
 
 func main() {
 
 	var cfg config.Config
-	_, err := config.LoadConfig("../../configs/config.yaml", &cfg)
+	_, err := config.LoadConfig("configs/config.yml", &cfg)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -23,7 +24,10 @@ func main() {
 	})
 
 	http.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
-		proxy.ProxyHandler(w, r, &cfg)
+		handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			proxy.ProxyHandler(w, r, &cfg)
+		})
+		logging.LoggingMiddleware(handler).ServeHTTP(w, r)
 	})
 
 	port := cfg.Port
