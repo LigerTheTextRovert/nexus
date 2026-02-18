@@ -1,3 +1,4 @@
+// Package config, all the config loading is handled here.
 package config
 
 import (
@@ -7,9 +8,14 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
+type Route struct {
+	Path        string `yaml:"path"`
+	BackendURL  string `yaml:"backend_URL"`
+	StripPrefix bool   `yaml:"strip_prefix"`
+}
+
 type Config struct {
-	BackendURL string `yaml:"backendURL"`
-	Port       string `yaml:"port"`
+	Routes []Route `yaml:"routes"`
 }
 
 func LoadConfig(configPath string, c *Config) (*Config, error) {

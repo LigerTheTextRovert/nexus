@@ -2,39 +2,24 @@
 package proxy
 
 import (
-	"io"
-	"log"
 	"net/http"
-
-	"github.com/LigerTheTextRovert/nexus/internal/config"
+	"net/http/httputil"
+	"net/url"
+	"time"
 )
 
-func ProxyHandler(w http.ResponseWriter, r *http.Request, c *config.Config) {
-	proxyRequest, _ := http.NewRequest(r.Method, c.BackendURL+r.URL.Path, r.Body)
+type App struct {
+	TargetURL string
+}
 
-	proxyRequest.Header = r.Header.Clone()
-
-	log.Printf("[PROXY] Frowarding to:%s", c.BackendURL+r.URL.Path)
-
-	client := &http.Client{}
-	res, err := client.Do(proxyRequest)
-
+func (a *App) ProxyHandler(w http.ResponseWriter, r *http.Request) {
+	targetURL, err := url.Parse(a.TargetURL)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		log.Printf("[ERROR] An error occur: %s", err.Error())
-		return
+		http.Error(w, "Proxy Error", http.StatusInternalServerError)
 	}
-	log.Printf("[RESPONSE] Backend: %d, %s", res.StatusCode, http.StatusText(res.StatusCode))
+	proxy := httputil.NewSingleHostReverseProxy(targetURL)
+	proxy.Transport = &http.Transport{ResponseHeaderTimeout: 10 * time.Second}
 
-	for key, values := range res.Header {
-		for _, value := range values {
-			w.Header().Add(key, value)
-		}
-	}
-
-	w.WriteHeader(res.StatusCode)
-	log.Printf("[RESPONSE] Client: %d, %s", res.StatusCode, http.StatusText(res.StatusCode))
-
-	io.Copy(w, res.Body)
-	defer res.Body.Close()
+	r.Host = targetURL.Host
+	proxy.ServeHTTP(w, r)
 }
