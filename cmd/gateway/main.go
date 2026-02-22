@@ -35,7 +35,10 @@ func main() {
 	})
 
 	for _, route := range cfg.Routes {
-		targetURL, _ := url.Parse(route.BackendURL)
+		targetURL, err := url.Parse(route.BackendURL)
+		if err != nil {
+			log.Fatal("an error occurs during parsing the URL")
+		}
 		p := httputil.NewSingleHostReverseProxy(targetURL)
 
 		r.Route(route.Path, func(r chi.Router) {
