@@ -42,7 +42,7 @@ func main() {
 		p := httputil.NewSingleHostReverseProxy(targetURL)
 
 		r.Route(route.Path, func(r chi.Router) {
-			r.Handle("/*", proxy.ProxyHandler(p))
+			r.Handle("/*", proxy.ProxyHandler(p, route.Path, route.StripPrefix))
 		})
 	}
 
