@@ -49,7 +49,7 @@ func main() {
 	port := cfg.Port
 	log.Printf("Starting gateway on port %s...", port)
 
-	if err := http.ListenAndServe(":"+port, r); err != nil {
+	if err := http.ListenAndServe(":"+string(port), r); err != nil {
 		log.Fatal(err)
 	}
 }
