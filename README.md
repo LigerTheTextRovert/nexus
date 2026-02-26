@@ -7,7 +7,7 @@
 - Simple http server ( attach each route to a specific proxy)
 - Yaml config loader
 - Reverse proxy
-- Simple http server
+- Structured logging in json formatt
 - Path rewriting
 
 ### Used libraries:
