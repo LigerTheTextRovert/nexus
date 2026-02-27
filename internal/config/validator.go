@@ -25,3 +25,15 @@ func PortValidator(port any) bool {
 
 	return true
 }
+
+func PathValidator(path string) bool {
+	if path == "" {
+		log.Fatal("you can not use empty path")
+		return false
+	}
+	if !strings.HasPrefix(path, "/") {
+		log.Fatal("your path must start with /")
+		return false
+	}
+	return true
+}
