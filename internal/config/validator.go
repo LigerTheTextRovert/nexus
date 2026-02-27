@@ -2,6 +2,8 @@ package config
 
 import (
 	"log"
+	"net/url"
+	"strings"
 )
 
 // Validate port is set and valid.
@@ -14,12 +16,12 @@ import (
 func PortValidator(port any) bool {
 	p, ok := port.(int)
 	if !ok {
-		log.Printf("the type of the given port number is not int")
+		log.Fatal("the type of the given port number is not int")
 		return false
 	}
 
 	if p < 1 || p > 65535 {
-		log.Printf("your port number should be between 1 and 65535")
+		log.Fatal("your port number should be between 1 and 65535")
 		return false
 	}
 
@@ -33,6 +35,15 @@ func PathValidator(path string) bool {
 	}
 	if !strings.HasPrefix(path, "/") {
 		log.Fatal("your path must start with /")
+		return false
+	}
+	return true
+}
+
+func BackendURLValidator(backendURL string) bool {
+	_, err := url.ParseRequestURI(backendURL)
+	if err != nil {
+		log.Fatal("please enter a valid backend_URL")
 		return false
 	}
 	return true
