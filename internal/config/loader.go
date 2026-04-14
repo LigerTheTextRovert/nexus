@@ -2,7 +2,7 @@
 package config
 
 import (
-	"fmt"
+	"log"
 	"os"
 
 	"gopkg.in/yaml.v3"
@@ -19,16 +19,14 @@ type Config struct {
 	Port   int
 }
 
-func LoadConfig(configPath string, c *Config) (*Config, error) {
+func LoadConfig(configPath string, c *Config) {
 	yamlConfig, err := os.ReadFile(configPath)
 	if err != nil {
-		return nil, fmt.Errorf("error: %w", err)
+		log.Fatal("an error occurs during reading the config file")
 	}
 
 	err = yaml.Unmarshal(yamlConfig, c)
 	if err != nil {
-		return nil, fmt.Errorf("error: %w", err)
+		log.Fatal("an error occurs during unmarshaling the config file")
 	}
-
-	return c, nil
 }

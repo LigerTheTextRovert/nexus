@@ -21,10 +21,7 @@ func main() {
 
 	var cfg config.Config
 
-	_, err := config.LoadConfig("configs/config.yml", &cfg)
-	if err != nil {
-		log.Fatal(err)
-	}
+	config.LoadConfig("configs/config.yml", &cfg)
 
 	r.Get("/health", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json; charset=utf-8")
