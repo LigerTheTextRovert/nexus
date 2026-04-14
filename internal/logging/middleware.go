@@ -51,7 +51,7 @@ func LoggingMiddleware(next http.Handler) http.Handler {
 			Method:     r.Method,
 			Path:       r.URL.Path,
 			Status:     sw.status,
-			DurationMS: time.Since(startTime).Microseconds(),
+			DurationMS: time.Since(startTime).Milliseconds(),
 			RemoteIP:   r.RemoteAddr,
 			UserAgent:  r.UserAgent(),
 		}
