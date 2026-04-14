@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"net/http/httputil"
 	"net/url"
+	"strconv"
 
 	"github.com/LigerTheTextRovert/nexus/internal/config"
 	"github.com/LigerTheTextRovert/nexus/internal/logging"
@@ -47,9 +48,9 @@ func main() {
 	}
 
 	port := cfg.Port
-	log.Printf("Starting gateway on port %s...", port)
+	log.Printf("Starting gateway on port %d...", port)
 
-	if err := http.ListenAndServe(":"+string(port), r); err != nil {
+	if err := http.ListenAndServe(":"+strconv.Itoa(port), r); err != nil {
 		log.Fatal(err)
 	}
 }
