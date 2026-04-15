@@ -1,6 +1,7 @@
 package config
 
 import (
+	"fmt"
 	"log"
 	"net/url"
 	"strings"
@@ -13,38 +14,57 @@ import (
 // Detect duplicate route paths.
 // Return clear, actionable startup errors.
 
-func PortValidator(port any) bool {
-	p, ok := port.(int)
-	if !ok {
-		log.Fatal("the type of the given port number is not int")
-		return false
+func (c *Config) PortValidator() error {
+	if c.Port < 1 || c.Port > 65535 {
+		return fmt.Errorf("your port number should be between 1 and 65535")
 	}
-
-	if p < 1 || p > 65535 {
-		log.Fatal("your port number should be between 1 and 65535")
-		return false
-	}
-
-	return true
+	return nil
 }
 
-func PathValidator(path string) bool {
+func (c *Config) DeduplicateRoutes() {
+	seen := make(map[string]bool)
+	var unique []Route
+	var duplicates []string
+
+	for _, v := range c.Routes {
+		if seen[v.Path] {
+			duplicates = append(duplicates, v.Path)
+		} else {
+			seen[v.Path] = true
+			unique = append(unique, v)
+		}
+	}
+
+	if len(duplicates) > 0 {
+		log.Printf("warning: duplicated paths will be ignored, duplicated paths: %v\n", duplicates)
+	}
+
+	c.Routes = unique
+}
+
+func (c *Config) PathValidator(path string) error {
+	//first deduplicate paths
+	c.DeduplicateRoutes()
+
 	if path == "" {
-		log.Fatal("you can not use empty path")
-		return false
+		return fmt.Errorf("you can not use empty path")
 	}
 	if !strings.HasPrefix(path, "/") {
-		log.Fatal("your path must start with /")
-		return false
+		return fmt.Errorf("your path must start with /")
 	}
-	return true
+	return nil
 }
 
-func BackendURLValidator(backendURL string) bool {
-	_, err := url.ParseRequestURI(backendURL)
+func (c *Config) BackendURLValidator(backendURL string) error {
+	u, err := url.ParseRequestURI(backendURL)
 	if err != nil {
-		log.Fatal("please enter a valid backend_URL")
-		return false
+		return fmt.Errorf("please enter a valid backend_URL")
 	}
-	return true
+	if u.Scheme != "https" && u.Scheme != "http" {
+		return fmt.Errorf("error: backend_URL must use http or https scheme")
+	}
+	if u.Host == "" {
+		return fmt.Errorf("error: backend_URL must include a host")
+	}
+	return nil
 }
