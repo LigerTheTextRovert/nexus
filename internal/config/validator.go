@@ -7,13 +7,6 @@ import (
 	"strings"
 )
 
-// Validate port is set and valid.
-// Validate each route has non-empty path.
-// Enforce normalized path format (starts with /, no trailing slash except /).
-// Validate backend_URL is parseable and has http/https scheme + host.
-// Detect duplicate route paths.
-// Return clear, actionable startup errors.
-
 func (c *Config) PortValidator() error {
 	if c.Port < 1 || c.Port > 65535 {
 		return fmt.Errorf("your port number should be between 1 and 65535")
@@ -66,5 +59,26 @@ func (c *Config) BackendURLValidator(backendURL string) error {
 	if u.Host == "" {
 		return fmt.Errorf("error: backend_URL must include a host")
 	}
+	return nil
+}
+
+func (c *Config) Validate() error {
+	if err := c.PortValidator(); err != nil {
+		return fmt.Errorf("invalid port: %w", err)
+	}
+
+	if len(c.Routes) == 0 {
+		return fmt.Errorf("at least one route is required")
+	}
+
+	for i, route := range c.Routes {
+		if err := c.BackendURLValidator(route.BackendURL); err != nil {
+			return fmt.Errorf("route[%d] invalid backend url: %w", i, err)
+		}
+		if err := c.PathValidator(route.Path); err != nil {
+			return fmt.Errorf("route[%d] invalid path: %w", i, err)
+		}
+	}
+
 	return nil
 }
