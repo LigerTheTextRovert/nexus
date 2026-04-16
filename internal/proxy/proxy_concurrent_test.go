@@ -26,7 +26,7 @@ func TestProxyConcurrent(t *testing.T) {
 	var wg sync.WaitGroup
 	wg.Add(requestsNumber)
 
-	for i := 0; i < requestsNumber; i++ {
+	for range requestsNumber {
 		go func() {
 			defer wg.Done()
 			req := httptest.NewRequest(http.MethodGet, "/api/users", nil)

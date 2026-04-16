@@ -22,6 +22,7 @@ func main() {
 	var cfg config.Config
 
 	config.LoadConfig("configs/config.yml", &cfg)
+	cfg.Validate()
 
 	r.Get("/health", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json; charset=utf-8")
