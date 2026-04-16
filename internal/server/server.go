@@ -44,6 +44,16 @@ func (s *Server) routes() http.Handler {
 	mux := chi.NewRouter()
 	mux.Use(logging.LoggingMiddleware)
 
+	mux.Get("/health", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json; charset=utf-8")
+		w.Write([]byte(`{"status" : "healthy"}`))
+	})
+
+	mux.Get("/", func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte("Gateway is running..."))
+	})
+
 	for _, route := range s.config.Routes {
 		targetURL, err := url.Parse(route.BackendURL)
 		if err != nil {
