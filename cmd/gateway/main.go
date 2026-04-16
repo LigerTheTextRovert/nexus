@@ -2,6 +2,7 @@
 package main
 
 import (
+	"fmt"
 	"log"
 
 	"github.com/LigerTheTextRovert/nexus/internal/config"
@@ -18,7 +19,10 @@ func run() error {
 	var cfg config.Config
 
 	config.LoadConfig("configs/config.yml", &cfg)
-	cfg.Validate()
+
+	if err := cfg.Validate(); err != nil {
+		return fmt.Errorf("failed to load config file: %v", err)
+	}
 
 	server := server.New(&cfg)
 	return server.Start()
