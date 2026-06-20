@@ -16,7 +16,7 @@ type Route struct {
 
 type Config struct {
 	Routes []Route `yaml:"routes"`
-	Port   int
+	Port   int     `yaml:"port"`
 }
 
 func LoadConfig(configPath string, c *Config) error {
