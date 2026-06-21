@@ -18,10 +18,13 @@ func main() {
 func run() error {
 	var cfg config.Config
 
-	config.LoadConfig("configs/config.yml", &cfg)
+	err := config.LoadConfig("configs/config.yml", &cfg)
+	if err != nil {
+		return fmt.Errorf("failed to load config file: %w", err)
+	}
 
 	if err := cfg.Validate(); err != nil {
-		return fmt.Errorf("failed to load config file: %v", err)
+		return fmt.Errorf("failed to validate the config file: %w", err)
 	}
 
 	server := server.New(&cfg)
