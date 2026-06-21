@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"log"
 	"net/http"
-	"net/http/httputil"
 	"net/url"
 	"os"
 	"os/signal"
@@ -44,22 +43,15 @@ func (s *Server) routes() http.Handler {
 	mux := chi.NewRouter()
 	mux.Use(logging.LoggingMiddleware)
 
-	mux.Get("/health", func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "application/json; charset=utf-8")
-		w.Write([]byte(`{"status" : "healthy"}`))
-	})
-
-	mux.Get("/", func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(http.StatusOK)
-		w.Write([]byte("Gateway is running..."))
-	})
+	mux.Get("/health", healthHandler)
+	mux.Get("/", rootHandler)
 
 	for _, route := range s.config.Routes {
 		targetURL, err := url.Parse(route.BackendURL)
 		if err != nil {
 			log.Fatal("an error occurs during parsing the URL")
 		}
-		p := httputil.NewSingleHostReverseProxy(targetURL)
+		p := proxy.NewReverseProxy(targetURL)
 
 		mux.Route(route.Path, func(r chi.Router) {
 			r.Handle("/*", proxy.ProxyHandler(p, route.Path, route.StripPrefix))
