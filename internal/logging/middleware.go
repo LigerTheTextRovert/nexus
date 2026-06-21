@@ -2,8 +2,7 @@
 package logging
 
 import (
-	"encoding/json"
-	"log"
+	"log/slog"
 	"net/http"
 	"time"
 )
@@ -14,6 +13,7 @@ type statusWriter struct {
 	bytes  int
 }
 
+// inorder to capture the status code, we need to override the WriteHeader function
 func (w *statusWriter) WriteHeader(code int) {
 	w.status = code
 	w.ResponseWriter.WriteHeader(code)
@@ -38,14 +38,12 @@ type StatusLog struct {
 }
 
 func LoggingMiddleware(next http.Handler) http.Handler {
+	logger := slog.Default()
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		startTime := time.Now()
 		sw := &statusWriter{ResponseWriter: w}
 
 		next.ServeHTTP(sw, r)
-		if sw.status == 0 {
-			sw.status = http.StatusOK
-		}
 
 		request := &StatusLog{
 			Method:     r.Method,
@@ -56,8 +54,14 @@ func LoggingMiddleware(next http.Handler) http.Handler {
 			UserAgent:  r.UserAgent(),
 		}
 
-		bytes, _ := json.Marshal(request)
-		log.Println(string(bytes))
-
+		logger.Info(
+			"request completed",
+			"method", request.Method,
+			"path", request.Path,
+			"status", request.Status,
+			"duration_ms", request.DurationMS,
+			"remote_ip", request.RemoteIP,
+			"user_agent", request.UserAgent,
+		)
 	})
 }
