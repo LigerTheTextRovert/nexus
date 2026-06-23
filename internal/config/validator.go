@@ -75,7 +75,7 @@ func (c *Config) Validate() error {
 		}
 
 		for _, v := range route.BackendURL {
-			if err := c.backendURLValidator(v.url); err != nil {
+			if err := c.backendURLValidator(v.Url); err != nil {
 				return fmt.Errorf("route[%d] invalid backend url: %w", i, err)
 			}
 		}

@@ -9,7 +9,7 @@ import (
 )
 
 type Backend struct {
-	url string `yaml:"url"`
+	Url string `yaml:"url"`
 }
 
 type Route struct {

@@ -3,7 +3,6 @@ routes:
   - path: /api/users
     backends:
       - url: http://localhost:8081
-      - url: http://localhost:8083
     strip_prefix: true
 
   - path: /api/orders
