@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"log"
 	"net/http"
-	"net/url"
 	"os"
 	"os/signal"
 	"syscall"
@@ -47,14 +46,15 @@ func (s *Server) routes() http.Handler {
 	mux.Get("/", rootHandler)
 
 	for _, route := range s.config.Routes {
-		targetURL, err := url.Parse(route.BackendURL)
+
+		handler, err := proxy.NewLoadBalancerHandler(route.BackendURL, route.Path, route.StripPrefix)
+
 		if err != nil {
-			log.Fatal("an error occurs during parsing the URL")
+			return nil
 		}
-		p := proxy.NewReverseProxy(targetURL)
 
 		mux.Route(route.Path, func(r chi.Router) {
-			r.Handle("/*", proxy.ProxyHandler(p, route.Path, route.StripPrefix))
+			r.Handle("/*", handler)
 		})
 	}
 
@@ -62,6 +62,8 @@ func (s *Server) routes() http.Handler {
 }
 
 func (s *Server) Start() error {
+	// SIGINT => usually Ctrl + C.
+	// SIGTERM => "please terminate" signal sent by Docker, Kubernetes, systemd, etc.
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
 
