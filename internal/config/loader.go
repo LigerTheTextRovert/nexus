@@ -8,10 +8,14 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
+type Backend struct {
+	url string `yaml:"url"`
+}
+
 type Route struct {
-	Path        string `yaml:"path"`
-	BackendURL  string `yaml:"backend_URL"`
-	StripPrefix bool   `yaml:"strip_prefix"`
+	Path        string    `yaml:"path"`
+	BackendURL  []Backend `yaml:"backends"`
+	StripPrefix bool      `yaml:"strip_prefix"`
 }
 
 type Config struct {
