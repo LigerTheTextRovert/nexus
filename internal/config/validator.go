@@ -2,43 +2,32 @@ package config
 
 import (
 	"fmt"
-	"log"
 	"net/url"
 	"strings"
 )
 
-func (c *Config) PortValidator() error {
+func (c *Config) portValidator() error {
 	if c.Port < 1 || c.Port > 65535 {
 		return fmt.Errorf("your port number should be between 1 and 65535")
 	}
 	return nil
 }
 
-func (c *Config) DeduplicateRoutes() {
-	seen := make(map[string]bool)
-	var unique []Route
-	var duplicates []string
+func (c *Config) checkDuplicateRoutes() error {
+	seen := make(map[string]struct{})
 
-	for _, v := range c.Routes {
-		if seen[v.Path] {
-			duplicates = append(duplicates, v.Path)
-		} else {
-			seen[v.Path] = true
-			unique = append(unique, v)
+	for _, route := range c.Routes {
+		if _, ok := seen[route.Path]; ok {
+			return fmt.Errorf("duplicate route path %q", route.Path)
 		}
+
+		seen[route.Path] = struct{}{}
 	}
 
-	if len(duplicates) > 0 {
-		log.Printf("warning: duplicated paths will be ignored, duplicated paths: %v\n", duplicates)
-	}
-
-	c.Routes = unique
+	return nil
 }
 
-func (c *Config) PathValidator(path string) error {
-	//first deduplicate paths
-	c.DeduplicateRoutes()
-
+func (c *Config) pathValidator(path string) error {
 	if path == "" {
 		return fmt.Errorf("you can not use empty path")
 	}
@@ -48,7 +37,7 @@ func (c *Config) PathValidator(path string) error {
 	return nil
 }
 
-func (c *Config) BackendURLValidator(backendURL string) error {
+func (c *Config) backendURLValidator(backendURL string) error {
 	u, err := url.ParseRequestURI(backendURL)
 	if err != nil {
 		return fmt.Errorf("please enter a valid backend_URL")
@@ -63,7 +52,15 @@ func (c *Config) BackendURLValidator(backendURL string) error {
 }
 
 func (c *Config) Validate() error {
-	if err := c.PortValidator(); err != nil {
+	if err := c.checkDuplicateRoutes(); err != nil {
+		return err
+	}
+
+	if len(c.Routes) == 0 {
+		return fmt.Errorf("at least one route is required")
+	}
+
+	if err := c.portValidator(); err != nil {
 		return fmt.Errorf("invalid port: %w", err)
 	}
 
@@ -72,10 +69,18 @@ func (c *Config) Validate() error {
 	}
 
 	for i, route := range c.Routes {
-		if err := c.BackendURLValidator(route.BackendURL); err != nil {
-			return fmt.Errorf("route[%d] invalid backend url: %w", i, err)
+
+		if len(route.BackendURL) == 0 {
+			return fmt.Errorf("route[%d]: at least one backend is required", i)
 		}
-		if err := c.PathValidator(route.Path); err != nil {
+
+		for _, v := range route.BackendURL {
+			if err := c.backendURLValidator(v.url); err != nil {
+				return fmt.Errorf("route[%d] invalid backend url: %w", i, err)
+			}
+		}
+
+		if err := c.pathValidator(route.Path); err != nil {
 			return fmt.Errorf("route[%d] invalid path: %w", i, err)
 		}
 	}
