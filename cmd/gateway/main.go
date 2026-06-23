@@ -4,6 +4,8 @@ package main
 import (
 	"fmt"
 	"log"
+	"log/slog"
+	"os"
 
 	"github.com/LigerTheTextRovert/nexus/internal/config"
 	"github.com/LigerTheTextRovert/nexus/internal/server"
@@ -17,6 +19,13 @@ func main() {
 
 func run() error {
 	var cfg config.Config
+
+	logger := slog.New(
+		slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{
+			Level: slog.LevelInfo,
+		}),
+	)
+	slog.SetDefault(logger)
 
 	err := config.LoadConfig("configs/config.yml", &cfg)
 	if err != nil {

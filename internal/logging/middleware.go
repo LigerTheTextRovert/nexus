@@ -38,7 +38,6 @@ type StatusLog struct {
 }
 
 func LoggingMiddleware(next http.Handler) http.Handler {
-	logger := slog.Default()
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		startTime := time.Now()
 		sw := &statusWriter{ResponseWriter: w}
@@ -54,7 +53,7 @@ func LoggingMiddleware(next http.Handler) http.Handler {
 			UserAgent:  r.UserAgent(),
 		}
 
-		logger.Info(
+		slog.Info(
 			"request completed",
 			"method", request.Method,
 			"path", request.Path,

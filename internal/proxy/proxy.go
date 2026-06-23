@@ -13,7 +13,6 @@ import (
 )
 
 func NewReverseProxy(target *url.URL) *httputil.ReverseProxy {
-	logger := slog.Default()
 
 	proxy := httputil.NewSingleHostReverseProxy(target)
 
@@ -24,7 +23,7 @@ func NewReverseProxy(target *url.URL) *httputil.ReverseProxy {
 	}
 
 	proxy.ErrorHandler = func(w http.ResponseWriter, r *http.Request, err error) {
-		logger.Error(
+		slog.Error(
 			"upstream request failed",
 			"backend", target,
 			"method", r.Method,
