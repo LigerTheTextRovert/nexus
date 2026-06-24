@@ -14,8 +14,25 @@ func TestConfig_Validate(t *testing.T) {
 			config: Config{
 				Port: 8080,
 				Routes: []Route{
-					{Path: "/api/users", BackendURL: "http://localhost:8081", StripPrefix: true},
-					{Path: "/api/orders", BackendURL: "http://localhost:8082", StripPrefix: true},
+					{Path: "/api/users", BackendURL: []Backend{{Url: "http://localhost:8081"}}, StripPrefix: true},
+					{Path: "/api/orders", BackendURL: []Backend{{Url: "http://localhost:8082"}}, StripPrefix: true},
+				},
+			},
+			wantErr: false,
+		},
+		{
+			name: "valid config with multiple backends",
+			config: Config{
+				Port: 8080,
+				Routes: []Route{
+					{
+						Path: "/api/users",
+						BackendURL: []Backend{
+							{Url: "http://localhost:8081"},
+							{Url: "http://localhost:8083"},
+						},
+						StripPrefix: true,
+					},
 				},
 			},
 			wantErr: false,
@@ -25,7 +42,7 @@ func TestConfig_Validate(t *testing.T) {
 			config: Config{
 				Port: 8080,
 				Routes: []Route{
-					{Path: "/api/users", BackendURL: "https://api.example.com", StripPrefix: false},
+					{Path: "/api/users", BackendURL: []Backend{{Url: "https://api.example.com"}}, StripPrefix: false},
 				},
 			},
 			wantErr: false,
@@ -36,7 +53,7 @@ func TestConfig_Validate(t *testing.T) {
 			name: "invalid port zero",
 			config: Config{
 				Port:   0,
-				Routes: []Route{{Path: "/api/users", BackendURL: "http://localhost:8081"}},
+				Routes: []Route{{Path: "/api/users", BackendURL: []Backend{{Url: "http://localhost:8081"}}}},
 			},
 			wantErr: true,
 		},
@@ -44,7 +61,7 @@ func TestConfig_Validate(t *testing.T) {
 			name: "invalid port too high",
 			config: Config{
 				Port:   65536,
-				Routes: []Route{{Path: "/api/users", BackendURL: "http://localhost:8081"}},
+				Routes: []Route{{Path: "/api/users", BackendURL: []Backend{{Url: "http://localhost:8081"}}}},
 			},
 			wantErr: true,
 		},
@@ -52,7 +69,7 @@ func TestConfig_Validate(t *testing.T) {
 			name: "invalid port negative",
 			config: Config{
 				Port:   -1,
-				Routes: []Route{{Path: "/api/users", BackendURL: "http://localhost:8081"}},
+				Routes: []Route{{Path: "/api/users", BackendURL: []Backend{{Url: "http://localhost:8081"}}}},
 			},
 			wantErr: true,
 		},
@@ -63,13 +80,24 @@ func TestConfig_Validate(t *testing.T) {
 			config:  Config{Port: 8080, Routes: []Route{}},
 			wantErr: true,
 		},
+		{
+			name: "duplicate route paths",
+			config: Config{
+				Port: 8080,
+				Routes: []Route{
+					{Path: "/api/users", BackendURL: []Backend{{Url: "http://localhost:8081"}}},
+					{Path: "/api/users", BackendURL: []Backend{{Url: "http://localhost:8082"}}},
+				},
+			},
+			wantErr: true,
+		},
 
 		// backend URL
 		{
 			name: "missing scheme",
 			config: Config{
 				Port:   8080,
-				Routes: []Route{{Path: "/api/users", BackendURL: "example.com"}},
+				Routes: []Route{{Path: "/api/users", BackendURL: []Backend{{Url: "example.com"}}}},
 			},
 			wantErr: true,
 		},
@@ -77,7 +105,7 @@ func TestConfig_Validate(t *testing.T) {
 			name: "invalid scheme",
 			config: Config{
 				Port:   8080,
-				Routes: []Route{{Path: "/api/users", BackendURL: "ftp://example.com"}},
+				Routes: []Route{{Path: "/api/users", BackendURL: []Backend{{Url: "ftp://example.com"}}}},
 			},
 			wantErr: true,
 		},
@@ -85,15 +113,47 @@ func TestConfig_Validate(t *testing.T) {
 			name: "missing host",
 			config: Config{
 				Port:   8080,
-				Routes: []Route{{Path: "/api/users", BackendURL: "http://"}},
+				Routes: []Route{{Path: "/api/users", BackendURL: []Backend{{Url: "http://"}}}},
 			},
 			wantErr: true,
 		},
 		{
-			name: "empty backend URL",
+			name: "empty backend URL in slice",
 			config: Config{
 				Port:   8080,
-				Routes: []Route{{Path: "/api/users", BackendURL: ""}},
+				Routes: []Route{{Path: "/api/users", BackendURL: []Backend{{Url: ""}}}},
+			},
+			wantErr: true,
+		},
+		{
+			name: "empty backend slice",
+			config: Config{
+				Port:   8080,
+				Routes: []Route{{Path: "/api/users", BackendURL: []Backend{}}},
+			},
+			wantErr: true,
+		},
+		{
+			name: "nil backend slice",
+			config: Config{
+				Port:   8080,
+				Routes: []Route{{Path: "/api/users", BackendURL: nil}},
+			},
+			wantErr: true,
+		},
+		{
+			name: "one invalid backend in multiple backends",
+			config: Config{
+				Port: 8080,
+				Routes: []Route{
+					{
+						Path: "/api/users",
+						BackendURL: []Backend{
+							{Url: "http://localhost:8081"},
+							{Url: "ftp://localhost:8082"},
+						},
+					},
+				},
 			},
 			wantErr: true,
 		},
