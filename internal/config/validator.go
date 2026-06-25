@@ -27,6 +27,24 @@ func (c *Config) checkDuplicateRoutes() error {
 	return nil
 }
 
+func (c *Config) methodValidation() error {
+	for _, route := range c.Routes {
+		if len(route.Methods) == 0 {
+			return fmt.Errorf("at least one method should be provided for path %q", route.Path)
+		}
+
+		for _, m := range route.Methods {
+			switch m {
+			case GET, POST, PUT, DELETE, PATCH:
+				continue
+			default:
+				return fmt.Errorf("invalid method %q for path %q", m, route.Path)
+			}
+		}
+	}
+	return nil
+}
+
 func (c *Config) pathValidator(path string) error {
 	if path == "" {
 		return fmt.Errorf("you can not use empty path")
@@ -62,6 +80,10 @@ func (c *Config) Validate() error {
 
 	if err := c.portValidator(); err != nil {
 		return fmt.Errorf("invalid port: %w", err)
+	}
+
+	if err := c.methodValidation(); err != nil {
+		return err
 	}
 
 	if len(c.Routes) == 0 {
