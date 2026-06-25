@@ -3,9 +3,9 @@ package proxy
 import (
 	"net/http"
 	"net/http/httptest"
-	"net/http/httputil"
-	"net/url"
 	"testing"
+
+	"github.com/LigerTheTextRovert/nexus/internal/config"
 )
 
 func TestProxy(t *testing.T) {
@@ -49,11 +49,13 @@ func TestProxy(t *testing.T) {
 			}))
 			defer backend.Close()
 
-			target, _ := url.Parse(backend.URL)
-			proxy := httputil.NewSingleHostReverseProxy(target)
-
-			handler := ProxyHandler(proxy, tt.path, tt.stripPrefix)
-
+			backends := []config.Backend{
+				{Url: backend.URL},
+			}
+			handler, err := NewLoadBalancerHandler(backends, tt.path, tt.stripPrefix)
+			if err != nil {
+				t.Fatalf("failed to create load balancer: %v", err)
+			}
 			req := httptest.NewRequest(http.MethodGet, tt.reqPath, nil)
 			rr := httptest.NewRecorder()
 
