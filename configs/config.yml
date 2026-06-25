@@ -1,11 +1,13 @@
 port: 8080
 routes:
   - path: /api/users
+    methods: [GET, POST]
     backends:
       - url: http://localhost:8081
     strip_prefix: true
 
   - path: /api/orders
+    methods: [GET]
     backends:
       - url: http://localhost:8082
     strip_prefix: true

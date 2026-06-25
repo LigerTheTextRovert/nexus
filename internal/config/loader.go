@@ -8,14 +8,25 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
+type HTTPMethod = string
+
+const (
+	GET    HTTPMethod = "GET"
+	POST   HTTPMethod = "POST"
+	PUT    HTTPMethod = "PUT"
+	DELETE HTTPMethod = "DELETE"
+	PATCH  HTTPMethod = "PATCH"
+)
+
 type Backend struct {
 	Url string `yaml:"url"`
 }
 
 type Route struct {
-	Path        string    `yaml:"path"`
-	BackendURL  []Backend `yaml:"backends"`
-	StripPrefix bool      `yaml:"strip_prefix"`
+	Path        string       `yaml:"path"`
+	Methods     []HTTPMethod `yaml:"methods"`
+	BackendURL  []Backend    `yaml:"backends"`
+	StripPrefix bool         `yaml:"strip_prefix"`
 }
 
 type Config struct {
