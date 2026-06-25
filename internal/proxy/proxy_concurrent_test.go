@@ -3,11 +3,11 @@ package proxy
 import (
 	"net/http"
 	"net/http/httptest"
-	"net/http/httputil"
-	"net/url"
 	"sync"
 	"sync/atomic"
 	"testing"
+
+	"github.com/LigerTheTextRovert/nexus/internal/config"
 )
 
 func TestProxyConcurrent(t *testing.T) {
@@ -19,9 +19,13 @@ func TestProxyConcurrent(t *testing.T) {
 	}))
 	defer backend.Close()
 
-	target, _ := url.Parse(backend.URL)
-	proxy := httputil.NewSingleHostReverseProxy(target)
-	proxyHandler := ProxyHandler(proxy, "/api", true)
+	backends := []config.Backend{
+		{Url: backend.URL},
+	}
+	proxyHandler, err := NewLoadBalancerHandler(backends, "/api", true)
+	if err != nil {
+		t.Fatalf("failed to create load balancer: %v", err)
+	}
 
 	var wg sync.WaitGroup
 	wg.Add(requestsNumber)
