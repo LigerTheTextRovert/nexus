@@ -1,90 +1,135 @@
-# Nexus - Implementation Plan for Resume Enhancement
+# Nexus — Implementation Plan & Roadmap
 
-This document outlines a plan to enhance the Nexus API Gateway, addressing potential bugs/improvements and adding new features to make the project suitable for a professional resume. The goal is to demonstrate strong Go engineering principles, system design, and common API gateway functionalities.
+**Goal:** Level up Nexus from a clean reverse-proxy into a production-aware API gateway that makes the author hireable as a **junior Go backend developer**, while laying groundwork toward **distributed systems** work.
 
-## I. Bug Fixes & Robustness Improvements
-
-These items focus on making the existing gateway more resilient, secure, and production-ready.
-
-### 1. Enhanced Error Handling in Proxy
-- **Description**: Implement more granular and user-friendly error handling for upstream service failures. Instead of generic 500s, provide specific HTTP status codes or custom error messages based on the nature of the upstream error (e.g., connection refused, timeout, upstream 4xx/5xx).
-- **Justification for Resume**: Demonstrates meticulous error handling, a critical skill for building reliable systems. Shows an understanding of HTTP semantics and user experience.
-- **Estimated Complexity**: Medium
-
-### 2. Configuration Hot Reloading
-- **Description**: Implement a mechanism to reload the `configs/config.yml` file without restarting the gateway. This could involve watching the file for changes (e.g., using `fsnotify`) and gracefully updating the internal routing table.
-- **Justification for Resume**: Showcases dynamic configuration management, graceful state transitions, and an understanding of operational concerns in long-running services. Involves concurrency considerations for updating shared state safely.
-- **Estimated Complexity**: High
-
-### 3. Advanced Configuration Validation
-- **Description**: Extend existing configuration validation to include:
-    - **Backend URL Reachability Check**: Perform a lightweight health check (e.g., `HEAD` request) on backend URLs during startup to ensure they are accessible.
-    - **Regex Path Validation**: Allow more flexible path matching using regular expressions in routes, requiring robust validation of the regex patterns.
-- **Justification for Resume**: Highlights attention to detail, proactive error prevention, and the ability to work with regular expressions. Validating reachability adds a layer of robustness to the gateway's startup.
-- **Estimated Complexity**: Medium
-
-### 4. Security Hardening (Basic Headers)
-- **Description**: Add security-related HTTP headers to all responses (e.g., `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`, `Strict-Transport-Security`). These are basic but important security measures.
-- **Justification for Resume**: Demonstrates an awareness of common web security practices and the ability to implement them at the gateway level.
-- **Estimated Complexity**: Low
+**Target window:** 1–2 weeks. Build each item as a self-contained PR so the git history tells the story.
 
 ---
 
-## II. New Features for Resume Enhancement
+## Status Snapshot (already built)
 
-These features introduce new functionality, showcasing advanced Go programming techniques and common patterns in API gateway design.
+These are **done** — don't re-plan them:
 
-### 1. Authentication Middleware (JWT Validation)
-- **Description**: Implement a middleware that intercepts requests and validates JSON Web Tokens (JWTs) found in the `Authorization` header. This would involve:
-    - Extracting the JWT.
-    - Parsing and validating its signature (e.g., using `go-jose` or `dgrijalva/jwt-go`).
-    - Optionally, checking claims (e.g., `exp`, `nbf`, `aud`, `iss`).
-    - Passing validated claims down the request context for downstream handlers/proxies.
-- **Justification for Resume**: This is a core component of modern API gateways. It demonstrates:
-    - **Middleware design**: Understanding `net/http` middleware patterns.
-    - **Security**: Knowledge of JWTs, cryptography (signature verification), and secure API design.
-    - **External library integration**: Using a well-known JWT library.
-    - **Context management**: Passing request-scoped data (user claims) effectively.
-- **Estimated Complexity**: High
-
-### 2. Rate Limiting Middleware
-- **Description**: Implement a global or per-route rate limiting middleware to control the number of requests a client can make within a given time window. This could be based on IP address, API key, or authenticated user. A leaky bucket or token bucket algorithm could be used.
-- **Justification for Resume**: Demonstrates:
-    - **Concurrency control**: Managing shared state safely across goroutines (e.g., using mutexes, channels, or atomic operations for the rate limiter state).
-    - **Resilience**: Protecting backend services from overload.
-    - **Algorithm implementation**: Applying a practical algorithm (leaky/token bucket).
-    - **Configuration**: Integrating rate limit rules into the existing YAML configuration.
-- **Estimated Complexity**: High
-
-### 3. Circuit Breaker Middleware
-- **Description**: Integrate a circuit breaker pattern (e.g., using `sony/gobreaker` or implementing a custom one) to prevent the gateway from continuously sending requests to unhealthy upstream services. The circuit breaker should track failure rates and "open" to fail fast, "half-open" to re-test, and "close" upon recovery.
-- **Justification for Resume**: Highlights advanced resilience patterns, fault tolerance, and an understanding of distributed system design. Crucial for robust microservices architectures.
-- **Estimated Complexity**: High
-
-### 4. Basic Load Balancing (Round Robin)
-- **Description**: Extend the `Route` configuration to support multiple `backend_URLs` for a single path, and implement a simple round-robin load balancing strategy to distribute requests among them.
-- **Justification for Resume**: Demonstrates an understanding of load balancing fundamentals, concurrent access to shared state (for the round-robin counter), and improving service availability.
-- **Estimated Complexity**: Medium
-
-### 5. Metrics and Observability (Prometheus Integration)
-- **Description**: Expose Prometheus-compatible metrics from the gateway, including:
-    - Request count, latency (histogram), and error rates.
-    - Goroutine count, memory usage.
-    - Custom metrics for rate limiter or circuit breaker states.
-    - Add a `/metrics` endpoint.
-- **Justification for Resume**: Essential for any production system. Demonstrates an understanding of observability, operational concerns, and integration with standard monitoring tools. Shows how to use Go's `expvar` or a Prometheus client library.
-- **Estimated Complexity**: High
+- chi router + `httputil.ReverseProxy` with path rewriting (`strip_prefix`)
+- YAML-driven routing config + validation (port range, URL scheme/host, paths, HTTP methods, duplicate detection)
+- Thread-safe **round-robin load balancer** (atomic counter, multi-backend per route)
+- Structured JSON logging middleware (`slog`: method, path, status, duration, IP, UA)
+- Proxy error handling (504 on timeout, 502 on upstream failure) + tuned `http.Transport`
+- Graceful shutdown (SIGINT/SIGTERM, 10s drain)
+- Table-driven tests + a 10k-goroutine concurrency test
+- Mock backend services (users/orders) + Makefile
 
 ---
 
-## III. Go Project Layout & Best Practices
+## Phase 0 — Fix Existing Issues (½ day, do first)
 
-Throughout the implementation of the above, adhere to and reinforce the following Go best practices:
+An interviewer will read this code. These are small but undercut an otherwise clean project.
 
--   **Idiomatic Go**: Favor the standard library, clear variable names, and Go's error handling patterns.
--   **Concurrency Safety**: Ensure all shared state access is properly synchronized. Use `context.Context` effectively for timeouts and cancellation.
--   **Testing**: Maintain and expand table-driven tests for new functionality. Add integration tests where appropriate (e.g., for the gateway with a dummy backend).
--   **Code Structure**: Maintain the existing `cmd/`, `internal/`, `pkg/` structure.
--   **Documentation**: Add clear comments for complex logic and update the `README.md` as features are added.
+### 0.1 Enforce HTTP methods (currently dead config)
 
-This plan provides a solid roadmap for transforming Nexus into a highly demonstrable project for your resume, showcasing a wide range of critical software engineering skills.
+- **Problem:** `methods` is parsed in `loader.go` and validated in `validator.go`, but `server.go` registers `r.Handle("/*", handler)` — which serves _all_ methods. The config field does nothing.
+- **Fix:** Register per-method (`r.Method(m, "/*", handler)`) so the config is enforced, or remove the field. Dead config is a review red flag.
+
+### 0.2 Stop swallowing errors in `routes()`
+
+- **Problem:** `server.routes()` returns `nil` when `NewLoadBalancerHandler` fails, so the server can start with no routes and no error.
+- **Fix:** Propagate the error — `New()` / `routes()` should return `error`, and `main` should fail loudly.
+
+### 0.3 Cleanups
+
+- Remove the duplicate `len(c.Routes) == 0` check in `Validate()`.
+- `go mod tidy` to drop the `// indirect` tags on direct deps.
+- In `load_balancer.go`, `fmt.Errorf("...%q", b)` formats a struct — use `b.Url`.
+
+---
+
+## Phase 1 — Production-Aware Signals (Tier 1, ~3.5 days)
+
+The highest resume-value-per-hour work. Do all four.
+
+### 1.1 Prometheus Metrics + `/metrics` endpoint — **highest value**
+
+- **Build:** request count, latency histogram, error rate, in-flight gauge (labels: route, method, status). Expose `/metrics` via `prometheus/client_golang`.
+- **Why:** Observability is table-stakes in 2026. "I instrumented it and can show p99 latency" beats any single feature.
+- **Effort:** 1 day
+
+### 1.2 Rate Limiting Middleware (token bucket, per-IP / per-route)
+
+- **Build:** token-bucket limiter (`golang.org/x/time/rate` or hand-rolled with `sync.Mutex`), keyed by client IP or route; return `429` + `Retry-After`. Limits configurable in YAML.
+- **Why:** Demonstrates concurrency control over shared state — the #1 thing Go interviews probe.
+- **Effort:** 1 day
+
+### 1.3 JWT Authentication Middleware
+
+- **Build:** extract bearer token, validate signature + `exp`/`nbf`, inject claims into `request.Context`. Per-route opt-in via config.
+- **Why:** Middleware design, security awareness, `context` usage — all common real-world tasks.
+- **Effort:** 1 day
+
+### 1.4 Dockerize (multi-stage) + docker-compose
+
+- **Build:** multi-stage `Dockerfile` (small final image); `docker-compose.yml` running gateway + both mock backends. "Clone and `docker compose up`."
+- **Why:** Makes a reviewer actually run it. Multi-stage build signals ops literacy.
+- **Effort:** ½ day
+
+---
+
+## Phase 2 — Distributed-Systems Flavor (Tier 2, ~3 days)
+
+These point directly at the longer-term distributed-systems goal.
+
+### 2.1 Active Health Checks + Dead-Backend Ejection
+
+- **Build:** background goroutine probes each backend (`GET /health` or TCP); LB skips unhealthy backends and re-adds them on recovery. Concurrency-safe backend state.
+- **Why:** Turns round-robin into a _real_ load balancer.
+- **Effort:** 1–1.5 days
+
+### 2.2 Circuit Breaker (per backend)
+
+- **Build:** closed → open → half-open state machine (`sony/gobreaker` or hand-rolled). Trip on failure-rate threshold, fail fast while open, probe in half-open. Pairs with 2.1.
+- **Why:** The marquee resilience pattern; core distributed-systems vocabulary.
+- **Effort:** 1 day
+
+### 2.3 Request ID Middleware
+
+- **Build:** generate/propagate `X-Request-ID`, add it to every log line.
+- **Why:** Cheap; shows understanding of correlation/tracing.
+- **Effort:** ~2 hours
+
+---
+
+## Phase 3 — Flagship Polish (Tier 3, ~1 day)
+
+### 3.1 GitHub Actions CI
+
+- Build + `go test -race ./...` + `golangci-lint`. Add a status badge to the README.
+- **Why:** A green CI badge signals disciplined shipping.
+
+### 3.2 Load-Test Report
+
+- Run `hey` / `vegeta` against the gateway; put a throughput + p50/p99 table (ideally a graph) in the README.
+- **Why:** Concrete numbers ("~12k req/s, p99 4 ms") are what reviewers remember.
+
+---
+
+## Recommended Scope for 1–2 Weeks
+
+Don't build all of it. The sweet spot:
+
+> **Phase 0 (all) + Phase 1 (all) + 2.1 + 2.2 + 3.2**
+
+That covers concurrency, resilience, observability, security, and ops — the junior-backend checklist — with the distributed-systems patterns that point at the next step.
+
+### Target resume bullet
+
+> **Nexus — Go API Gateway**
+> Built a concurrent HTTP API gateway in Go: round-robin load balancing with active health checks and circuit breaking, token-bucket rate limiting, JWT auth, and Prometheus-instrumented observability. Containerized with multi-stage Docker; CI with race detection and linting. Sustained ~X k req/s at p99 < Y ms (verified with `vegeta`).
+
+---
+
+## Engineering Principles (apply throughout)
+
+- **Idiomatic Go** — favor the standard library; clear names; wrap errors with `%w`.
+- **Concurrency safety** — synchronize all shared state; use `context.Context` for timeouts/cancellation; keep the `-race` test suite green.
+- **Testing** — table-driven tests for each new middleware; an integration test against a dummy backend.
+- **Structure** — keep the `cmd/` `internal/` `pkg/` layout; each feature is its own package + PR.
+- **Docs** — update `README.md` as features land; comment non-obvious logic.
