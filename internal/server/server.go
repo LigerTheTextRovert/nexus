@@ -3,6 +3,7 @@ package server
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log"
 	"net/http"
@@ -22,23 +23,28 @@ type Server struct {
 	config *config.Config
 }
 
-func New(c *config.Config) *Server {
+func New(c *config.Config) (*Server, error) {
 	s := &Server{
 		config: c,
 	}
 
+	handler, err := s.routes()
+	if err != nil {
+		return nil, err
+	}
+
 	s.server = &http.Server{
 		Addr:         fmt.Sprintf(":%d", c.Port),
-		Handler:      s.routes(),
+		Handler:      handler,
 		ReadTimeout:  10 * time.Second,
 		WriteTimeout: 10 * time.Second,
 		IdleTimeout:  60 * time.Second,
 	}
 
-	return s
+	return s, nil
 }
 
-func (s *Server) routes() http.Handler {
+func (s *Server) routes() (http.Handler, error) {
 	mux := chi.NewRouter()
 	mux.Use(logging.LoggingMiddleware)
 
@@ -48,9 +54,8 @@ func (s *Server) routes() http.Handler {
 	for _, route := range s.config.Routes {
 
 		handler, err := proxy.NewLoadBalancerHandler(route.BackendURL, route.Path, route.StripPrefix)
-
 		if err != nil {
-			return nil
+			return nil, fmt.Errorf("failed to register a new handler")
 		}
 
 		mux.Route(route.Path, func(r chi.Router) {
@@ -58,7 +63,7 @@ func (s *Server) routes() http.Handler {
 		})
 	}
 
-	return mux
+	return mux, nil
 }
 
 func (s *Server) Start() error {
