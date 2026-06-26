@@ -59,7 +59,9 @@ func (s *Server) routes() (http.Handler, error) {
 		}
 
 		mux.Route(route.Path, func(r chi.Router) {
-			r.Handle("/*", handler)
+			for _, method := range route.Methods {
+				r.Method(string(method), "/*", handler)
+			}
 		})
 	}
 
