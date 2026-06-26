@@ -36,6 +36,9 @@ func run() error {
 		return fmt.Errorf("failed to validate the config file: %w", err)
 	}
 
-	server := server.New(&cfg)
+	server, err := server.New(&cfg)
+	if err != nil {
+		return fmt.Errorf("failed to start the server :%w", err)
+	}
 	return server.Start()
 }
