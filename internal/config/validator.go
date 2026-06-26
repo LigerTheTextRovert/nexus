@@ -86,10 +86,6 @@ func (c *Config) Validate() error {
 		return err
 	}
 
-	if len(c.Routes) == 0 {
-		return fmt.Errorf("at least one route is required")
-	}
-
 	for i, route := range c.Routes {
 
 		if len(route.BackendURL) == 0 {
