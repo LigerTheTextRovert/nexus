@@ -23,13 +23,15 @@ type Manager struct {
 	Per     time.Duration
 }
 
-func (m *Manager) NewManager(requests int, per time.Duration) *Manager {
-	go m.CleanupClients()
-	return &Manager{
+func NewManager(requests int, per time.Duration) *Manager {
+	m := &Manager{
 		Clients: make(map[string]*Client),
 		Request: requests,
 		Per:     per,
 	}
+
+	go m.CleanupClients()
+	return m
 }
 
 func NewLimiter(requsts int, per time.Duration) *rate.Limiter {
