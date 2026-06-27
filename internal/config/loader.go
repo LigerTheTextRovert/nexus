@@ -19,7 +19,7 @@ const (
 )
 
 type Backend struct {
-	Url string `yaml:"url"`
+	URL string `yaml:"url"`
 }
 
 type Route struct {
