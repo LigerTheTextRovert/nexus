@@ -2,6 +2,8 @@
 package ratelimit
 
 import (
+	"context"
+	"fmt"
 	"net"
 	"net/http"
 	"sync"
@@ -15,23 +17,42 @@ type Client struct {
 	LastRequest time.Time
 }
 
-type Manager struct {
-	Clients map[string]*Client
+type RateLimiterManager struct {
+	clients map[string]*Client
 	mu      sync.RWMutex
 
-	Request int
-	Per     time.Duration
+	request int
+	per     time.Duration
+
+	cleanupInterval time.Duration
+	idleTimeout     time.Duration
+	ctx             context.Context
 }
 
-func NewManager(requests int, per time.Duration) *Manager {
-	m := &Manager{
-		Clients: make(map[string]*Client),
-		Request: requests,
-		Per:     per,
+func NewManager(
+	requests int,
+	per time.Duration,
+	cleanupInterval time.Duration,
+	idleTimeout time.Duration,
+	ctx context.Context,
+) (*RateLimiterManager, error) {
+	if cleanupInterval <= 0 {
+		return nil, fmt.Errorf("Clean up interval should be greater than 0")
+	}
+	if idleTimeout <= 0 {
+		return nil, fmt.Errorf("idle timeout should be greater than 0")
 	}
 
-	go m.CleanupClients()
-	return m
+	m := &RateLimiterManager{
+		clients:         make(map[string]*Client),
+		request:         requests,
+		per:             per,
+		cleanupInterval: cleanupInterval,
+		idleTimeout:     idleTimeout,
+	}
+
+	go m.CleanupClients(ctx)
+	return m, nil
 }
 
 func NewLimiter(requests int, per time.Duration) *rate.Limiter {
@@ -41,14 +62,14 @@ func NewLimiter(requests int, per time.Duration) *rate.Limiter {
 
 // We lookup for clients Limiter and return thier own limiter,
 // if it's the first time they send a request, we create one for them
-func (m *Manager) GetLimiter(ip string) *rate.Limiter {
-	m.mu.RLock()
-	value, ok := m.Clients[ip]
-	defer m.mu.RUnlock()
+func (m *RateLimiterManager) GetLimiter(ip string) *rate.Limiter {
+	m.mu.Lock()
+	defer m.mu.Unlock()
 
+	value, ok := m.clients[ip]
 	if !ok {
-		newClientLimiter := NewLimiter(100, 1)
-		m.Clients[ip] = &Client{
+		newClientLimiter := NewLimiter(m.request, m.per)
+		m.clients[ip] = &Client{
 			Limiter:     newClientLimiter,
 			LastRequest: time.Now(),
 		}
@@ -56,14 +77,12 @@ func (m *Manager) GetLimiter(ip string) *rate.Limiter {
 		return newClientLimiter
 	}
 
-	m.mu.Lock()
-	defer m.mu.Unlock()
-
 	value.LastRequest = time.Now()
 	return value.Limiter
 }
 
-func (m *Manager) RateLimiterMiddleware(next http.Handler) http.Handler {
+// Each middleware is a receiver cause we could have different config per route
+func (m *RateLimiterManager) RateLimiterMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 
 		host, _, err := net.SplitHostPort(r.RemoteAddr)
@@ -83,16 +102,23 @@ func (m *Manager) RateLimiterMiddleware(next http.Handler) http.Handler {
 }
 
 // In order to prevent memory leaks, we use this clean up function in the background
-func (m *Manager) CleanupClients() {
-	ticker := time.NewTicker(time.Minute)
+func (m *RateLimiterManager) CleanupClients(ctx context.Context) {
+	ticker := time.NewTicker(m.cleanupInterval)
+	defer ticker.Stop()
+
 	for {
-		<-ticker.C
-		m.mu.Lock()
-		for ip, client := range m.Clients {
-			if time.Since(client.LastRequest) > 10*time.Minute {
-				delete(m.Clients, ip)
+		select {
+		case <-ticker.C:
+			m.mu.Lock()
+			for ip, client := range m.clients {
+				if time.Since(client.LastRequest) > m.idleTimeout {
+					delete(m.clients, ip)
+				}
 			}
+			m.mu.Unlock()
+
+		case <-ctx.Done():
+			return
 		}
-		m.mu.Unlock()
 	}
 }
