@@ -82,7 +82,7 @@ func (m *RateLimiterManager) GetLimiter(ip string) *rate.Limiter {
 }
 
 // Each middleware is a receiver cause we could have different config per route
-func (m *RateLimiterManager) RateLimiterMiddleware(next http.Handler) http.Handler {
+func (m *RateLimiterManager) Middleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 
 		host, _, err := net.SplitHostPort(r.RemoteAddr)
