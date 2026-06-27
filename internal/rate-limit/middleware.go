@@ -2,6 +2,7 @@
 package ratelimit
 
 import (
+	"net"
 	"net/http"
 	"sync"
 	"time"
@@ -36,11 +37,13 @@ func NewLimiter(requsts int, per time.Duration) *rate.Limiter {
 	return rate.NewLimiter(limiter, requsts)
 }
 
-func GetLimiter(ip string) *rate.Limiter {
-	mu.Lock()
-	defer mu.Unlock()
+// We lookup for clients Limiter and return thier own limiter,
+// if it's the first time they send a request, we create one for them
+func (m *Manager) GetLimiter(ip string) *rate.Limiter {
+	m.mu.RLock()
+	value, ok := m.Clients[ip]
+	defer m.mu.RUnlock()
 
-	value, ok := Clients[ip]
 	if !ok {
 		newClientLimiter := NewLimiter(100, 1)
 		m.Clients[ip] = &Client{
@@ -51,14 +54,22 @@ func GetLimiter(ip string) *rate.Limiter {
 		return newClientLimiter
 	}
 
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
 	value.LastRequest = time.Now()
 	return value.Limiter
 }
 
 func (m *Manager) RateLimiterMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		ip := r.RemoteAddr
-		limiter := GetLimiter(ip)
+
+		host, _, err := net.SplitHostPort(r.RemoteAddr)
+		if err != nil {
+			host = r.RemoteAddr
+		}
+
+		limiter := m.GetLimiter(host)
 
 		if !limiter.Allow() {
 			http.Error(w, "Too Many Requests", http.StatusTooManyRequests)
