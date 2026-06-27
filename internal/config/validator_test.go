@@ -14,8 +14,8 @@ func TestConfig_Validate(t *testing.T) {
 			config: Config{
 				Port: 8080,
 				Routes: []Route{
-					{Path: "/api/users", BackendURL: []Backend{{Url: "http://localhost:8081"}}, StripPrefix: true},
-					{Path: "/api/orders", BackendURL: []Backend{{Url: "http://localhost:8082"}}, StripPrefix: true},
+					{Path: "/api/users", BackendURL: []Backend{{URL: "http://localhost:8081"}}, StripPrefix: true},
+					{Path: "/api/orders", BackendURL: []Backend{{URL: "http://localhost:8082"}}, StripPrefix: true},
 				},
 			},
 			wantErr: false,
@@ -28,8 +28,8 @@ func TestConfig_Validate(t *testing.T) {
 					{
 						Path: "/api/users",
 						BackendURL: []Backend{
-							{Url: "http://localhost:8081"},
-							{Url: "http://localhost:8083"},
+							{URL: "http://localhost:8081"},
+							{URL: "http://localhost:8083"},
 						},
 						StripPrefix: true,
 					},
@@ -42,7 +42,7 @@ func TestConfig_Validate(t *testing.T) {
 			config: Config{
 				Port: 8080,
 				Routes: []Route{
-					{Path: "/api/users", BackendURL: []Backend{{Url: "https://api.example.com"}}, StripPrefix: false},
+					{Path: "/api/users", BackendURL: []Backend{{URL: "https://api.example.com"}}, StripPrefix: false},
 				},
 			},
 			wantErr: false,
@@ -53,7 +53,7 @@ func TestConfig_Validate(t *testing.T) {
 			name: "invalid port zero",
 			config: Config{
 				Port:   0,
-				Routes: []Route{{Path: "/api/users", BackendURL: []Backend{{Url: "http://localhost:8081"}}}},
+				Routes: []Route{{Path: "/api/users", BackendURL: []Backend{{URL: "http://localhost:8081"}}}},
 			},
 			wantErr: true,
 		},
@@ -61,7 +61,7 @@ func TestConfig_Validate(t *testing.T) {
 			name: "invalid port too high",
 			config: Config{
 				Port:   65536,
-				Routes: []Route{{Path: "/api/users", BackendURL: []Backend{{Url: "http://localhost:8081"}}}},
+				Routes: []Route{{Path: "/api/users", BackendURL: []Backend{{URL: "http://localhost:8081"}}}},
 			},
 			wantErr: true,
 		},
@@ -69,7 +69,7 @@ func TestConfig_Validate(t *testing.T) {
 			name: "invalid port negative",
 			config: Config{
 				Port:   -1,
-				Routes: []Route{{Path: "/api/users", BackendURL: []Backend{{Url: "http://localhost:8081"}}}},
+				Routes: []Route{{Path: "/api/users", BackendURL: []Backend{{URL: "http://localhost:8081"}}}},
 			},
 			wantErr: true,
 		},
@@ -85,8 +85,8 @@ func TestConfig_Validate(t *testing.T) {
 			config: Config{
 				Port: 8080,
 				Routes: []Route{
-					{Path: "/api/users", BackendURL: []Backend{{Url: "http://localhost:8081"}}},
-					{Path: "/api/users", BackendURL: []Backend{{Url: "http://localhost:8082"}}},
+					{Path: "/api/users", BackendURL: []Backend{{URL: "http://localhost:8081"}}},
+					{Path: "/api/users", BackendURL: []Backend{{URL: "http://localhost:8082"}}},
 				},
 			},
 			wantErr: true,
@@ -97,7 +97,7 @@ func TestConfig_Validate(t *testing.T) {
 			name: "missing scheme",
 			config: Config{
 				Port:   8080,
-				Routes: []Route{{Path: "/api/users", BackendURL: []Backend{{Url: "example.com"}}}},
+				Routes: []Route{{Path: "/api/users", BackendURL: []Backend{{URL: "example.com"}}}},
 			},
 			wantErr: true,
 		},
@@ -105,7 +105,7 @@ func TestConfig_Validate(t *testing.T) {
 			name: "invalid scheme",
 			config: Config{
 				Port:   8080,
-				Routes: []Route{{Path: "/api/users", BackendURL: []Backend{{Url: "ftp://example.com"}}}},
+				Routes: []Route{{Path: "/api/users", BackendURL: []Backend{{URL: "ftp://example.com"}}}},
 			},
 			wantErr: true,
 		},
@@ -113,7 +113,7 @@ func TestConfig_Validate(t *testing.T) {
 			name: "missing host",
 			config: Config{
 				Port:   8080,
-				Routes: []Route{{Path: "/api/users", BackendURL: []Backend{{Url: "http://"}}}},
+				Routes: []Route{{Path: "/api/users", BackendURL: []Backend{{URL: "http://"}}}},
 			},
 			wantErr: true,
 		},
@@ -121,7 +121,7 @@ func TestConfig_Validate(t *testing.T) {
 			name: "empty backend URL in slice",
 			config: Config{
 				Port:   8080,
-				Routes: []Route{{Path: "/api/users", BackendURL: []Backend{{Url: ""}}}},
+				Routes: []Route{{Path: "/api/users", BackendURL: []Backend{{URL: ""}}}},
 			},
 			wantErr: true,
 		},
@@ -149,8 +149,8 @@ func TestConfig_Validate(t *testing.T) {
 					{
 						Path: "/api/users",
 						BackendURL: []Backend{
-							{Url: "http://localhost:8081"},
-							{Url: "ftp://localhost:8082"},
+							{URL: "http://localhost:8081"},
+							{URL: "ftp://localhost:8082"},
 						},
 					},
 				},

@@ -27,9 +27,9 @@ func NewLoadBalancerHandler(backends []config.Backend, path string, stripPrefix 
 	backs := make([]Backend, 0, len(backends))
 
 	for _, b := range backends {
-		targetURL, err := url.Parse(b.Url)
+		targetURL, err := url.Parse(b.URL)
 		if err != nil {
-			return nil, fmt.Errorf("failed to parse backend URL %q: %w", b.Url, err)
+			return nil, fmt.Errorf("failed to parse backend URL %q: %w", b.URL, err)
 		}
 		backs = append(backs, Backend{
 			URL:   targetURL,

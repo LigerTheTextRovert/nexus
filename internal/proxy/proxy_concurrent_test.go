@@ -20,7 +20,7 @@ func TestProxyConcurrent(t *testing.T) {
 	defer backend.Close()
 
 	backends := []config.Backend{
-		{Url: backend.URL},
+		{URL: backend.URL},
 	}
 	proxyHandler, err := NewLoadBalancerHandler(backends, "/api", true)
 	if err != nil {

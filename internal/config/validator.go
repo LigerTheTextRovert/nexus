@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net/url"
 	"strings"
+	"time"
 )
 
 func (c *Config) portValidator() error {
@@ -45,7 +46,7 @@ func (c *Config) methodValidation() error {
 	return nil
 }
 
-func (c *Config) pathValidator(path string) error {
+func pathValidator(path string) error {
 	if path == "" {
 		return fmt.Errorf("you can not use empty path")
 	}
@@ -55,7 +56,24 @@ func (c *Config) pathValidator(path string) error {
 	return nil
 }
 
-func (c *Config) backendURLValidator(backendURL string) error {
+func RateLimitValidator(rl *RateLimit) error {
+	if rl == nil {
+		return nil
+	}
+	if rl.Requests <= 0 {
+		return fmt.Errorf("requests must be greater than 0")
+	}
+	duration, err := time.ParseDuration(rl.Per)
+	if err != nil {
+		return fmt.Errorf("invalid duration %q", rl.Per)
+	}
+	if duration <= 0 {
+		return fmt.Errorf("duration must be greater than 0")
+	}
+	return nil
+}
+
+func backendURLValidator(backendURL string) error {
 	u, err := url.ParseRequestURI(backendURL)
 	if err != nil {
 		return fmt.Errorf("please enter a valid backend_URL")
@@ -93,13 +111,17 @@ func (c *Config) Validate() error {
 		}
 
 		for _, v := range route.BackendURL {
-			if err := c.backendURLValidator(v.Url); err != nil {
+			if err := backendURLValidator(v.URL); err != nil {
 				return fmt.Errorf("route[%d] invalid backend url: %w", i, err)
 			}
 		}
 
-		if err := c.pathValidator(route.Path); err != nil {
+		if err := pathValidator(route.Path); err != nil {
 			return fmt.Errorf("route[%d] invalid path: %w", i, err)
+		}
+
+		if err := RateLimitValidator(route.RateLimit); err != nil {
+			return fmt.Errorf("route[%d] invalid rate_limit config: %w", i, err)
 		}
 	}
 

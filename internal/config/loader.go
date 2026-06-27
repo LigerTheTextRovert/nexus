@@ -19,13 +19,19 @@ const (
 )
 
 type Backend struct {
-	Url string `yaml:"url"`
+	URL string `yaml:"url"`
+}
+
+type RateLimit struct {
+	Requests int    `yaml:"requests"`
+	Per      string `yaml:"per"`
 }
 
 type Route struct {
 	Path        string       `yaml:"path"`
 	Methods     []HTTPMethod `yaml:"methods"`
 	BackendURL  []Backend    `yaml:"backends"`
+	RateLimit   *RateLimit   `yaml:"rate_limit"`
 	StripPrefix bool         `yaml:"strip_prefix"`
 }
 

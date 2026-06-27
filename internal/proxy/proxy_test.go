@@ -50,7 +50,7 @@ func TestProxy(t *testing.T) {
 			defer backend.Close()
 
 			backends := []config.Backend{
-				{Url: backend.URL},
+				{URL: backend.URL},
 			}
 			handler, err := NewLoadBalancerHandler(backends, tt.path, tt.stripPrefix)
 			if err != nil {
