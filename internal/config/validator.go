@@ -56,7 +56,23 @@ func pathValidator(path string) error {
 	return nil
 }
 
-func (c *Config) backendURLValidator(backendURL string) error {
+func RateLimitValidator(rl *RateLimit) error {
+	if rl == nil {
+		return nil
+	}
+	if rl.Requests <= 0 {
+		return fmt.Errorf("requests must be greater than 0")
+	}
+	duration, err := time.ParseDuration(rl.Per)
+	if err != nil {
+		return fmt.Errorf("invalid duration %q", rl.Per)
+	}
+	if duration <= 0 {
+		return fmt.Errorf("duration must be greater than 0")
+	}
+	return nil
+}
+
 func backendURLValidator(backendURL string) error {
 	u, err := url.ParseRequestURI(backendURL)
 	if err != nil {
@@ -102,6 +118,10 @@ func (c *Config) Validate() error {
 
 		if err := pathValidator(route.Path); err != nil {
 			return fmt.Errorf("route[%d] invalid path: %w", i, err)
+		}
+
+		if err := RateLimitValidator(route.RateLimit); err != nil {
+			return fmt.Errorf("route[%d] invalid rate_limit config: %w", i, err)
 		}
 	}
 
