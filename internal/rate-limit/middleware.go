@@ -14,10 +14,22 @@ type Client struct {
 	LastRequest time.Time
 }
 
-var (
-	Clients = make(map[string]*Client)
-	mu      sync.Mutex
-)
+type Manager struct {
+	Clients map[string]*Client
+	mu      sync.RWMutex
+
+	Request int
+	Per     time.Duration
+}
+
+func (m *Manager) NewManager(requests int, per time.Duration) *Manager {
+	go m.CleanupClients()
+	return &Manager{
+		Clients: make(map[string]*Client),
+		Request: requests,
+		Per:     per,
+	}
+}
 
 func NewLimiter(requsts int, per time.Duration) *rate.Limiter {
 	limiter := rate.Every(per / time.Duration(requsts))
@@ -31,7 +43,7 @@ func GetLimiter(ip string) *rate.Limiter {
 	value, ok := Clients[ip]
 	if !ok {
 		newClientLimiter := NewLimiter(100, 1)
-		Clients[ip] = &Client{
+		m.Clients[ip] = &Client{
 			Limiter:     newClientLimiter,
 			LastRequest: time.Now(),
 		}
@@ -43,7 +55,7 @@ func GetLimiter(ip string) *rate.Limiter {
 	return value.Limiter
 }
 
-func RateLimiterMiddlewave(next http.Handler) http.Handler {
+func (m *Manager) RateLimiterMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		ip := r.RemoteAddr
 		limiter := GetLimiter(ip)
@@ -58,16 +70,16 @@ func RateLimiterMiddlewave(next http.Handler) http.Handler {
 }
 
 // In order to prevent memory leaks, we use this clean up function in the background
-func CleanupClients() {
+func (m *Manager) CleanupClients() {
 	ticker := time.NewTicker(time.Minute)
 	for {
 		<-ticker.C
-		mu.Lock()
-		for ip, client := range Clients {
+		m.mu.Lock()
+		for ip, client := range m.Clients {
 			if time.Since(client.LastRequest) > 10*time.Minute {
-				delete(Clients, ip)
+				delete(m.Clients, ip)
 			}
 		}
-		mu.Unlock()
+		m.mu.Unlock()
 	}
 }
