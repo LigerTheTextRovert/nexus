@@ -34,9 +34,9 @@ func NewManager(requests int, per time.Duration) *Manager {
 	return m
 }
 
-func NewLimiter(requsts int, per time.Duration) *rate.Limiter {
-	limiter := rate.Every(per / time.Duration(requsts))
-	return rate.NewLimiter(limiter, requsts)
+func NewLimiter(requests int, per time.Duration) *rate.Limiter {
+	limiter := rate.Every(per / time.Duration(requests))
+	return rate.NewLimiter(limiter, requests)
 }
 
 // We lookup for clients Limiter and return thier own limiter,
