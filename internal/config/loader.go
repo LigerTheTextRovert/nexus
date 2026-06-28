@@ -32,6 +32,7 @@ type Route struct {
 	Methods     []HTTPMethod `yaml:"methods"`
 	BackendURL  []Backend    `yaml:"backends"`
 	RateLimit   *RateLimit   `yaml:"rate_limit"`
+	Timeout     *string      `yaml:"timeout"`
 	StripPrefix bool         `yaml:"strip_prefix"`
 }
 

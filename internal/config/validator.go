@@ -73,6 +73,20 @@ func RateLimitValidator(rl *RateLimit) error {
 	return nil
 }
 
+func timeoutValidator(t *string) error {
+	if t == nil {
+		return nil
+	}
+	timeout, err := time.ParseDuration(*t)
+	if err != nil {
+		return err
+	}
+	if timeout <= 0 {
+		return err
+	}
+	return nil
+}
+
 func backendURLValidator(backendURL string) error {
 	u, err := url.ParseRequestURI(backendURL)
 	if err != nil {
@@ -122,6 +136,10 @@ func (c *Config) Validate() error {
 
 		if err := RateLimitValidator(route.RateLimit); err != nil {
 			return fmt.Errorf("route[%d] invalid rate_limit config: %w", i, err)
+		}
+
+		if err := timeoutValidator(route.Timeout); err != nil {
+			return fmt.Errorf("route[%d] invalid timeout: %w", i, err)
 		}
 	}
 

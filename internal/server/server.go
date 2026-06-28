@@ -95,7 +95,12 @@ func (s *Server) registerRoute(mux chi.Router, route config.Route) error {
 	}
 
 	mux.Route(route.Path, func(r chi.Router) {
-		r.Use(middleware.Timeout(10 * time.Second))
+		if route.Timeout != nil {
+			// we ignore the err cause we validate the
+			//config file right after loading it
+			duration, _ := time.ParseDuration(*route.Timeout)
+			r.Use(middleware.Timeout(duration))
+		}
 
 		if manager != nil {
 			r.Use(manager.Middleware)
