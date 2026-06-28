@@ -14,21 +14,30 @@ import (
 	"github.com/LigerTheTextRovert/nexus/internal/config"
 	"github.com/LigerTheTextRovert/nexus/internal/logging"
 	"github.com/LigerTheTextRovert/nexus/internal/proxy"
+	ratelimit "github.com/LigerTheTextRovert/nexus/internal/rate-limit"
+	"github.com/go-chi/chi/middleware"
 	"github.com/go-chi/chi/v5"
 )
 
 type Server struct {
 	server *http.Server
 	config *config.Config
+
+	ctx    context.Context
+	cancel context.CancelFunc
 }
 
 func New(c *config.Config) (*Server, error) {
+	ctx, cancel := context.WithCancel(context.Background())
 	s := &Server{
 		config: c,
+		ctx:    ctx,
+		cancel: cancel,
 	}
 
 	handler, err := s.routes()
 	if err != nil {
+		cancel()
 		return nil, err
 	}
 
@@ -51,20 +60,53 @@ func (s *Server) routes() (http.Handler, error) {
 	mux.Get("/", rootHandler)
 
 	for _, route := range s.config.Routes {
-
-		handler, err := proxy.NewLoadBalancerHandler(route.BackendURL, route.Path, route.StripPrefix)
-		if err != nil {
-			return nil, fmt.Errorf("failed to register a new handler")
+		if err := s.registerRoute(mux, route); err != nil {
+			return nil, err
 		}
-
-		mux.Route(route.Path, func(r chi.Router) {
-			for _, method := range route.Methods {
-				r.Method(string(method), "/*", handler)
-			}
-		})
 	}
 
 	return mux, nil
+}
+
+func (s *Server) registerRoute(mux chi.Router, route config.Route) error {
+	handler, err := proxy.NewLoadBalancerHandler(route.BackendURL, route.Path, route.StripPrefix)
+	if err != nil {
+		return err
+	}
+
+	var manager *ratelimit.RateLimiterManager
+
+	if rl := route.RateLimit; rl != nil {
+		per, err := time.ParseDuration(rl.Per)
+		if err != nil {
+			return fmt.Errorf("invalid rate limit duration for route %q: %w", route.Path, err)
+		}
+
+		manager, err = ratelimit.NewManager(
+			rl.Requests,
+			per,
+			time.Minute,
+			10*time.Minute,
+			s.ctx,
+		)
+		if err != nil {
+			return err
+		}
+	}
+
+	mux.Route(route.Path, func(r chi.Router) {
+		r.Use(middleware.Timeout(10 * time.Second))
+
+		if manager != nil {
+			r.Use(manager.Middleware)
+		}
+
+		for _, method := range route.Methods {
+			r.Method(string(method), "/*", handler)
+		}
+	})
+
+	return nil
 }
 
 func (s *Server) Start() error {
@@ -84,6 +126,7 @@ func (s *Server) Start() error {
 }
 
 func (s *Server) shutdown() error {
+	s.cancel()
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 	return s.server.Shutdown(ctx)
