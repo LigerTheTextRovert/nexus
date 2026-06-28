@@ -4,6 +4,7 @@ package ratelimit
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"net"
 	"net/http"
 	"sync"
@@ -93,6 +94,12 @@ func (m *RateLimiterManager) Middleware(next http.Handler) http.Handler {
 		limiter := m.getLimiter(host)
 
 		if !limiter.Allow() {
+			slog.Warn(
+				"rate limit exceeded",
+				"remote_ip", host,
+				"method", r.Method,
+				"path", r.URL.Path,
+			)
 			http.Error(w, "Too Many Requests", http.StatusTooManyRequests)
 			return
 		}
