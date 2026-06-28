@@ -51,24 +51,24 @@ func NewManager(
 		idleTimeout:     idleTimeout,
 	}
 
-	go m.CleanupClients(ctx)
+	go m.cleanupClients(ctx)
 	return m, nil
 }
 
-func NewLimiter(requests int, per time.Duration) *rate.Limiter {
+func newLimiter(requests int, per time.Duration) *rate.Limiter {
 	limiter := rate.Every(per / time.Duration(requests))
 	return rate.NewLimiter(limiter, requests)
 }
 
 // We lookup for clients Limiter and return thier own limiter,
 // if it's the first time they send a request, we create one for them
-func (m *RateLimiterManager) GetLimiter(ip string) *rate.Limiter {
+func (m *RateLimiterManager) getLimiter(ip string) *rate.Limiter {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
 	value, ok := m.clients[ip]
 	if !ok {
-		newClientLimiter := NewLimiter(m.request, m.per)
+		newClientLimiter := newLimiter(m.request, m.per)
 		m.clients[ip] = &Client{
 			Limiter:     newClientLimiter,
 			LastRequest: time.Now(),
@@ -90,7 +90,7 @@ func (m *RateLimiterManager) Middleware(next http.Handler) http.Handler {
 			host = r.RemoteAddr
 		}
 
-		limiter := m.GetLimiter(host)
+		limiter := m.getLimiter(host)
 
 		if !limiter.Allow() {
 			http.Error(w, "Too Many Requests", http.StatusTooManyRequests)
@@ -102,7 +102,7 @@ func (m *RateLimiterManager) Middleware(next http.Handler) http.Handler {
 }
 
 // In order to prevent memory leaks, we use this clean up function in the background
-func (m *RateLimiterManager) CleanupClients(ctx context.Context) {
+func (m *RateLimiterManager) cleanupClients(ctx context.Context) {
 	ticker := time.NewTicker(m.cleanupInterval)
 	defer ticker.Stop()
 
