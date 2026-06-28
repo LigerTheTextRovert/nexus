@@ -4,6 +4,7 @@ routes:
   - path: /api/users
     methods: [GET, POST]
     strip_prefix: true
+    timeout: 10s
 
     backends:
       - url: http://localhost:8081
@@ -15,6 +16,11 @@ routes:
   - path: /api/orders
     methods: [GET]
     strip_prefix: true
+    timeout: 5s
 
     backends:
       - url: http://localhost:8082
+
+    rate_limit:
+      requests: 50
+      per: 1m
