@@ -3,7 +3,7 @@ package main
 
 import (
 	"fmt"
-	"log"
+
 	"log/slog"
 	"os"
 
@@ -13,7 +13,9 @@ import (
 
 func main() {
 	if err := run(); err != nil {
-		log.Fatal(err)
+		// slog.SetDefault is called early in run(), so JSON output is guaranteed.
+		slog.Error("gateway failed to start", "err", err)
+		os.Exit(1)
 	}
 }
 
@@ -31,10 +33,12 @@ func run() error {
 	if err != nil {
 		return fmt.Errorf("failed to load config file: %w", err)
 	}
+	slog.Info("config loaded", "path", "configs/config.yml", "routes", len(cfg.Routes))
 
 	if err := cfg.Validate(); err != nil {
 		return fmt.Errorf("failed to validate the config file: %w", err)
 	}
+	slog.Info("config validated", "port", cfg.Port, "routes", len(cfg.Routes))
 
 	server, err := server.New(&cfg)
 	if err != nil {
