@@ -3,8 +3,9 @@ package server
 
 import (
 	"context"
+	"errors"
 	"fmt"
-	"log"
+	"log/slog"
 	"net/http"
 	"os"
 	"os/signal"
@@ -71,7 +72,7 @@ func (s *Server) routes() (http.Handler, error) {
 func (s *Server) registerRoute(mux chi.Router, route config.Route) error {
 	handler, err := proxy.NewLoadBalancerHandler(route.BackendURL, route.Path, route.StripPrefix)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to create load balancer for route %q: %w", route.Path, err)
 	}
 
 	var manager *ratelimit.RateLimiterManager
@@ -111,6 +112,14 @@ func (s *Server) registerRoute(mux chi.Router, route config.Route) error {
 		}
 	})
 
+	slog.Info("route registered",
+		"path", route.Path,
+		"methods", route.Methods,
+		"backends", len(route.BackendURL),
+		"rate_limit", route.RateLimit != nil,
+		"timeout", route.Timeout != nil,
+	)
+
 	return nil
 }
 
@@ -120,19 +129,29 @@ func (s *Server) Start() error {
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
 
+	slog.Info("server listening", "addr", s.server.Addr)
+
 	go func() {
-		if err := s.server.ListenAndServe(); err != nil {
-			log.Fatalf("server error: %v", err)
+		if err := s.server.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
+			slog.Error("server failed", "err", err)
+			os.Exit(1)
 		}
 	}()
 
-	<-quit
+	sig := <-quit
+	slog.Info("shutdown signal received", "signal", sig)
 	return s.shutdown()
 }
 
 func (s *Server) shutdown() error {
+	slog.Info("server shutting down", "grace_period", "10s")
 	s.cancel()
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
-	return s.server.Shutdown(ctx)
+	if err := s.server.Shutdown(ctx); err != nil {
+		slog.Error("graceful shutdown failed", "err", err)
+		return err
+	}
+	slog.Info("server stopped")
+	return nil
 }

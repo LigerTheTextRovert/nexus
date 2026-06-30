@@ -2,6 +2,7 @@ package proxy
 
 import (
 	"fmt"
+	"log/slog"
 	"net/http"
 	"net/http/httputil"
 	"net/url"
@@ -51,6 +52,7 @@ func NewLoadBalancerHandler(backends []config.Backend, path string, stripPrefix 
 
 func (lb *LoadBalancer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if len(lb.backends) == 0 {
+		slog.Error("no backends available", "path", r.URL.Path, "method", r.Method)
 		http.Error(w, "no backend available", http.StatusServiceUnavailable)
 		return
 	}
