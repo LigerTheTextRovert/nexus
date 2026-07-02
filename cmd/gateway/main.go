@@ -13,7 +13,6 @@ import (
 
 func main() {
 	if err := run(); err != nil {
-		// slog.SetDefault is called early in run(), so JSON output is guaranteed.
 		slog.Error("gateway failed to start", "err", err)
 		os.Exit(1)
 	}

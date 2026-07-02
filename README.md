@@ -2,7 +2,7 @@
 
 > /ˈneksəs/ — A connection or series of connections linking two or more things
 
-A lightweight HTTP API gateway / reverse proxy written in Go. Nexus sits in front of multiple backend services and routes incoming HTTP requests to the correct upstream based on a YAML configuration file.
+A lightweight HTTP API gateway / reverse proxy written in Go. Nexus sits in front of backend services and routes incoming HTTP requests to upstreams based on a YAML configuration file.
 
 ---
 
@@ -12,55 +12,62 @@ A lightweight HTTP API gateway / reverse proxy written in Go. Nexus sits in fron
 Client Request
        |
        v
-  [chi router]  -- logging middleware (JSON structured logs)
+  [chi router] -- JSON structured logging
        |
-       +-- GET /health   --> {"status": "healthy"}
-       +-- GET /          --> "Gateway is running..."
-       +-- /api/users/*  -- [rate limit: 100 req/min per IP]
-       |                      --> [reverse proxy] --> http://localhost:8081 (strip_prefix)
-       +-- /api/orders/* -- [rate limit: 50 req/min per IP]
-                             --> [reverse proxy] --> http://localhost:8082 (strip_prefix)
+       +-- GET /health  --> {"status": "healthy"}
+       +-- GET /         --> "Gateway is running..."
+       +-- /api/users/*  -- [timeout: 10s] -- [rate limit: 100 req/min per IP]
+       |                     --> [round-robin reverse proxy] --> http://localhost:8081 (strip_prefix)
+       +-- /api/orders/* -- [timeout: 5s] -- [rate limit: 50 req/min per IP]
+                             --> [round-robin reverse proxy] --> http://localhost:8082 (strip_prefix)
 ```
 
 ### Project Layout
 
 ```
 nexus/
-  cmd/gateway/main.go              # Entrypoint - wires config to server
+  cmd/
+    gateway/main.go             # Gateway entrypoint: loads config, validates it, starts the server
+    users-service/main.go       # Demo upstream service on :8081
+    orders-service/main.go      # Demo upstream service on :8082
+  configs/config.yml            # Runtime configuration
   internal/
     config/
-      loader.go                     # YAML config loading
-      validator.go                  # Config validation (port, routes, URLs)
-      validator_test.go             # Table-driven tests
-    proxy/
-      proxy.go                      # Reverse proxy handler with path rewriting
-      proxy_test.go                 # Table-driven proxy tests
-      proxy_concurrent_test.go      # 10k goroutine concurrency test
-    rate-limit/
-      middleware.go                 # Per-IP token bucket rate limiter with background cleanup
-    server/
-      server.go                     # HTTP server, route wiring, graceful shutdown
-      handler.go                    # Placeholder for future handler logic
+      loader.go                 # YAML config structs and loading
+      validator.go              # Config validation for ports, routes, methods, URLs, rate limits
+      validator_test.go         # Table-driven config validation tests
     logging/
-      middleware.go                 # HTTP logging middleware (JSON structured logs)
-      logger.go                     # Placeholder for future logger extensions
-  pkg/utils/                        # Placeholder for public utility functions
-  configs/config.yml                # Runtime configuration
+      middleware.go             # JSON request logging middleware
+    proxy/
+      proxy.go                  # Reverse proxy setup, transport, and upstream error handling
+      load_balancer.go          # Thread-safe round-robin backend selection and path rewriting
+      proxy_test.go             # Proxy behavior tests
+      proxy_concurrent_test.go  # 10k goroutine concurrency test
+      load_balancer_test.go     # Load balancer tests
+    rate-limit/
+      middleware.go             # Per-IP token bucket rate limiter with background cleanup
+      middleware_test.go        # Rate limiter tests
+    server/
+      server.go                 # HTTP server, route wiring, graceful shutdown
+      handler.go                # Health/root handlers
+  pkg/utils/                    # Public utility helpers
+  Makefile                      # Convenience run/build targets
 ```
 
 ---
 
 ## Features
 
-- **YAML-based route configuration** — define backends, allowed HTTP methods, timeouts, and path prefixes declaratively
-- **Per-route rate limiting** — token bucket limiter per client IP, configured independently per route (`requests` and `per` window); idle clients cleaned up in the background
-- **Reverse proxy** — forwards requests to upstream services using `net/http/httputil.ReverseProxy`
-- **Path rewriting** — optionally strips matched path prefixes before forwarding
-- **Structured JSON logging** — every request logs method, path, status, duration, user agent, and remote IP; rate-limited requests emit a `WARN` log before returning `429`
-- **Config validation** — validates port range, backend URL schemes/hosts, and path formats at startup; deduplicates routes
-- **Graceful shutdown** — handles `SIGINT`/`SIGTERM`, cancels rate limiter cleanup goroutines, then drains with a 10-second grace period
-- **Table-driven tests** — for proxy behavior and config validation
-- **Concurrency safety test** — 10,000 concurrent requests through the proxy handler
+- **YAML-based route configuration** — define route prefixes, allowed HTTP methods, upstream backends, optional timeouts, optional rate limits, and path rewriting declaratively
+- **Round-robin load balancing** — routes can define one or more backends; requests are distributed with an atomic counter for concurrent safety
+- **Reverse proxying** — forwards requests with `net/http/httputil.ReverseProxy` and a tuned `http.Transport`
+- **Path rewriting** — optionally strips the matched route prefix before forwarding; for example `/api/users/42` can become `/42` upstream
+- **Per-route rate limiting** — optional token bucket limiter per client IP, configured independently per route (`requests` and `per` window), with idle clients cleaned up in the background
+- **Per-route timeouts** — optional `timeout` values use chi middleware to bound request handling for a route
+- **Structured JSON logging** — gateway startup, route registration, request completion, rate-limit rejections, and upstream errors are logged with `log/slog`
+- **Startup config validation** — validates port range, route presence, duplicate paths, HTTP methods, backend URLs, and rate limit values before serving traffic
+- **Graceful shutdown** — handles `SIGINT`/`SIGTERM`, cancels rate limiter cleanup goroutines, and drains the server with a 10-second grace period
+- **Tests** — table-driven validation/proxy tests plus concurrency coverage for the proxy/load balancer path
 
 ---
 
@@ -70,6 +77,7 @@ nexus/
 
 ```yaml
 port: 8080
+
 routes:
   - path: /api/users
     methods: [GET, POST]
@@ -92,20 +100,23 @@ routes:
       per: 1m
 ```
 
-Each `Route` maps a URL path prefix to one or more backend services. When `strip_prefix: true`, the matched prefix is removed before forwarding. For example, a request to `/api/users/42` becomes `/42` at the backend. `methods` restricts which HTTP verbs are accepted on that route. `rate_limit` defines an independent token bucket per client IP for that route.
+Each route maps a URL path prefix to one or more backend services. When `strip_prefix: true`, the matched prefix is removed before forwarding. For example, a request to `/api/users/42` becomes `/42` at the backend.
+
+`methods` controls which HTTP verbs are accepted on that route. `rate_limit` and `timeout` are optional. When `rate_limit` is omitted, the route is not rate limited. When multiple `backends` are configured, Nexus chooses the next backend with round-robin selection.
 
 ### Validation Rules
 
 | Field | Rule |
 |---|---|
 | `port` | Must be between 1 and 65535 |
-| `routes` | At least one route required |
+| `routes` | At least one route is required |
 | `path` | Must be non-empty and start with `/` |
+| Duplicate route paths | Rejected at startup |
+| `methods` | At least one method is required; valid values are `GET`, `POST`, `PUT`, `DELETE`, `PATCH` |
+| `backends` | At least one backend is required |
 | `backends[].url` | Must be a valid URI with `http` or `https` scheme and a non-empty host |
-| `methods` | Must be valid HTTP verbs (`GET`, `POST`, `PUT`, `DELETE`, `PATCH`) |
-| `rate_limit.requests` | Must be > 0 |
-| `rate_limit.per` | Must be > 0 (e.g. `1m`, `30s`) |
-| Duplicate paths | Logged as warning and deduplicated (first occurrence wins) |
+| `rate_limit.requests` | Optional; when present, must be > 0 |
+| `rate_limit.per` | Optional; when present, must parse as a positive Go duration such as `1m` or `30s` |
 
 ---
 
@@ -113,21 +124,24 @@ Each `Route` maps a URL path prefix to one or more backend services. When `strip
 
 ### Startup Flow
 
-1. **Load** — `config.LoadConfig` reads the YAML file and unmarshals it into a `Config` struct
-2. **Validate** — `cfg.Validate()` checks port range, route presence, backend URLs, and paths
-3. **Build** — `server.New(&cfg)` creates a shared lifecycle context, instantiates one `RateLimiterManager` per route (from `rate_limit` config), registers the chi router with logging middleware, `/health`, `/`, and each proxy route with its corresponding rate limiter
-4. **Serve** — `server.Start()` launches `ListenAndServe`, blocks on OS signals, then calls `shutdown()` with a 10-second grace period
+1. **Load** — `config.LoadConfig` reads `configs/config.yml` and unmarshals it into `config.Config`.
+2. **Validate** — `cfg.Validate()` checks port range, route presence, duplicate paths, methods, backend URLs, and optional rate limit values.
+3. **Build** — `server.New(&cfg)` creates a lifecycle context, registers global logging middleware, health/root handlers, and each configured route.
+4. **Wire route middleware** — each route gets its own load balancer, optional timeout middleware, and optional rate limiter manager.
+5. **Serve** — `server.Start()` launches `ListenAndServe`, waits for `SIGINT` or `SIGTERM`, then shuts down with a 10-second grace period.
 
 ### Request Lifecycle
 
-1. Request arrives at the chi router
-2. `LoggingMiddleware` wraps the response writer to capture status and bytes
-3. Chi matches the route; the per-route `RateLimiterManager.Middleware` checks the client IP's token bucket
-   - If the bucket is empty: logs a `WARN` and returns `429 Too Many Requests` immediately
-4. The request is dispatched to the corresponding `ProxyHandler`
-5. The handler optionally rewrites the path (strip prefix), then calls `httputil.ReverseProxy.ServeHTTP`
-6. The response flows back through the middleware chain
-7. The logging middleware records method, path, status, duration, remote IP, and user agent
+1. Request arrives at the chi router.
+2. `LoggingMiddleware` wraps the response writer to capture status and bytes.
+3. Chi matches the configured route and method.
+4. If configured, the route timeout middleware applies a request deadline.
+5. If configured, the route's `RateLimiterManager.Middleware` checks the client IP's token bucket.
+   - If the bucket is empty, Nexus logs a warning and returns `429 Too Many Requests`.
+6. The request reaches the route's `LoadBalancer`.
+7. The load balancer atomically selects the next backend, optionally strips the route prefix, and delegates to the backend's reverse proxy.
+8. If the upstream fails, the reverse proxy error handler returns `504 Gateway Timeout` for deadline errors or `502 Bad Gateway` for other upstream failures.
+9. The response flows back through the middleware chain and the logging middleware records request metadata.
 
 ---
 
@@ -135,15 +149,53 @@ Each `Route` maps a URL path prefix to one or more backend services. When `strip
 
 ### Prerequisites
 
-- Go 1.22+
+- Go 1.25.5 or compatible with the version in `go.mod`
 
-### Run
+### Run the gateway only
 
 ```bash
-go run ./cmd/gateway/
+go run ./cmd/gateway
 ```
 
-The server starts on port 8080 (as configured in `configs/config.yml`).
+The gateway starts on port `8080` by default, as configured in `configs/config.yml`. This assumes the configured upstream services are already running.
+
+### Run demo upstreams and gateway
+
+```bash
+make run
+```
+
+This starts:
+
+- `users-service` on `:8081`
+- `orders-service` on `:8082`
+- `gateway` on `:8080`
+
+Example requests:
+
+```bash
+curl http://localhost:8080/health
+curl http://localhost:8080/api/users/
+curl http://localhost:8080/api/orders/
+```
+
+### Build
+
+```bash
+make build
+```
+
+Binaries are written to `bin/`:
+
+- `bin/gateway`
+- `bin/users-service`
+- `bin/orders-service`
+
+Run the built binaries together with:
+
+```bash
+make run-built
+```
 
 ### Test
 
@@ -157,8 +209,8 @@ go test -race -v ./...
 
 | Library | Purpose |
 |---|---|
-| [go-chi/chi](https://github.com/go-chi/chi) | Lightweight HTTP router with middleware support |
+| [go-chi/chi/v5](https://github.com/go-chi/chi) | Lightweight HTTP router with middleware support |
 | [gopkg.in/yaml.v3](https://pkg.go.dev/gopkg.in/yaml.v3) | YAML config file parsing |
 | [golang.org/x/time/rate](https://pkg.go.dev/golang.org/x/time/rate) | Token bucket rate limiter |
 
-All other functionality uses the Go standard library (`net/http`, `net/http/httputil`, `context`, `log/slog`, `os/signal`, `sync`).
+Most other functionality uses the Go standard library (`net/http`, `net/http/httputil`, `context`, `log/slog`, `os/signal`, `sync`, `sync/atomic`).
