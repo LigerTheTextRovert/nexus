@@ -14,6 +14,32 @@ func (c *Config) portValidator() error {
 	return nil
 }
 
+func (c *Config) healthCheckValidator() error {
+	hc := c.HealthCheck
+	if hc == nil {
+		return nil
+	}
+	if strings.TrimSpace(hc.Path) == "" {
+		return fmt.Errorf("health check path should not be empty")
+	}
+	if strings.HasPrefix(hc.Path, "/") {
+		return fmt.Errorf("health check path should start with /")
+	}
+	if hc.Interval <= hc.Timeout {
+		return fmt.Errorf("interval duration should be greater than timeout interval in health_check")
+	}
+	if hc.HealthyThreshold < 1 {
+		return fmt.Errorf("healthy_threshold should be greater or equal to 1")
+	}
+	if hc.UnhealthyThreshold < 1 {
+		return fmt.Errorf("unhealthy_threshold should be greater or equal to 1")
+	}
+	if hc.ExpectedStatus < 100 || hc.ExpectedStatus > 599 {
+		return fmt.Errorf("expected_status should be a valid HTTP status code")
+	}
+	return nil
+}
+
 func (c *Config) checkDuplicateRoutes() error {
 	seen := make(map[string]struct{})
 
@@ -118,6 +144,10 @@ func (c *Config) Validate() error {
 		return err
 	}
 
+	if err := c.healthCheckValidator(); err != nil {
+		return err
+	}
+
 	for i, route := range c.Routes {
 
 		if len(route.BackendURL) == 0 {
@@ -129,12 +159,6 @@ func (c *Config) Validate() error {
 				return fmt.Errorf("route[%d] invalid backend url: %w", i, err)
 			}
 		}
-
-		// for _, v := range route.BackendURL {
-		// 	if err := backendURLValidator(v.URL); err != nil {
-		// 		return fmt.Errorf("route[%d] invalid backend url: %w", i, err)
-		// 	}
-		// }
 
 		if err := pathValidator(route.Path); err != nil {
 			return fmt.Errorf("route[%d] invalid path: %w", i, err)
