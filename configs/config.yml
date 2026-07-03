@@ -1,5 +1,13 @@
 port: 8080
 
+health_check:
+  path: /health
+  interval: 5s
+  timeout: 2s
+  healthy_threshold: 2
+  unhealthy_threshold: 3
+  expected_status: 200
+
 routes:
   - path: /api/users
     methods: [GET, POST]

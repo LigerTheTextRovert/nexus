@@ -1,6 +1,9 @@
 package config
 
-import "sync/atomic"
+import (
+	"sync/atomic"
+	"time"
+)
 
 type HTTPMethod = string
 
@@ -35,7 +38,17 @@ type Route struct {
 	StripPrefix bool         `yaml:"strip_prefix"`
 }
 
+type HealthCheck struct {
+	Path               string        `yam:"path"`
+	Interval           time.Duration `yam:"interval"`
+	Timeout            time.Duration `yam:"timeout"`
+	HealthyThreshold   int           `yam:"healthy_threshold"`
+	UnhealthyThreshold int           `yam:"unhealthy_threshold"`
+	ExpectedStatus     int           `yam:"expected_status"`
+}
+
 type Config struct {
-	Routes []Route `yaml:"routes"`
-	Port   int     `yaml:"port"`
+	Port        int         `yaml:"port"`
+	HealthCheck HealthCheck `yaml:"health_check"`
+	Routes      []Route     `yaml:"routes"`
 }
