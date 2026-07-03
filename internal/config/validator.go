@@ -124,11 +124,17 @@ func (c *Config) Validate() error {
 			return fmt.Errorf("route[%d]: at least one backend is required", i)
 		}
 
-		for _, v := range route.BackendURL {
-			if err := backendURLValidator(v.URL); err != nil {
+		for i := 0; i < len(route.BackendURL); i++ {
+			if err := backendURLValidator(route.BackendURL[i].URL); err != nil {
 				return fmt.Errorf("route[%d] invalid backend url: %w", i, err)
 			}
 		}
+
+		// for _, v := range route.BackendURL {
+		// 	if err := backendURLValidator(v.URL); err != nil {
+		// 		return fmt.Errorf("route[%d] invalid backend url: %w", i, err)
+		// 	}
+		// }
 
 		if err := pathValidator(route.Path); err != nil {
 			return fmt.Errorf("route[%d] invalid path: %w", i, err)
