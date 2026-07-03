@@ -48,7 +48,7 @@ type HealthCheck struct {
 }
 
 type Config struct {
-	Port        int         `yaml:"port"`
-	HealthCheck HealthCheck `yaml:"health_check"`
-	Routes      []Route     `yaml:"routes"`
+	Port        int          `yaml:"port"`
+	HealthCheck *HealthCheck `yaml:"health_check"`
+	Routes      []Route      `yaml:"routes"`
 }
