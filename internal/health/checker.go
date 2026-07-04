@@ -63,6 +63,7 @@ func (hc *HealthChecker) updateHealthStatus(backend *config.Backend, err error) 
 
 func (hc *HealthChecker) Start(ctx context.Context) {
 	ticker := time.NewTicker(hc.Config.Interval)
+	defer ticker.Stop()
 
 	for {
 		select {
