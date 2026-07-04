@@ -19,24 +19,39 @@ func (c *Config) healthCheckValidator() error {
 	if hc == nil {
 		return nil
 	}
+
 	if strings.TrimSpace(hc.Path) == "" {
-		return fmt.Errorf("health check path should not be empty")
+		return fmt.Errorf("health_check.path should not be empty")
 	}
-	if strings.HasPrefix(hc.Path, "/") {
-		return fmt.Errorf("health check path should start with /")
+
+	if !strings.HasPrefix(hc.Path, "/") {
+		return fmt.Errorf("health_check.path should start with '/'")
 	}
+
+	if hc.Interval <= 0 {
+		return fmt.Errorf("health_check.interval should be greater than 0")
+	}
+
+	if hc.Timeout <= 0 {
+		return fmt.Errorf("health_check.timeout should be greater than 0")
+	}
+
 	if hc.Interval <= hc.Timeout {
-		return fmt.Errorf("interval duration should be greater than timeout interval in health_check")
+		return fmt.Errorf("health_check.interval should be greater than health_check.timeout")
 	}
+
 	if hc.HealthyThreshold < 1 {
-		return fmt.Errorf("healthy_threshold should be greater or equal to 1")
+		return fmt.Errorf("health_check.healthy_threshold should be greater than or equal to 1")
 	}
+
 	if hc.UnhealthyThreshold < 1 {
-		return fmt.Errorf("unhealthy_threshold should be greater or equal to 1")
+		return fmt.Errorf("health_check.unhealthy_threshold should be greater than or equal to 1")
 	}
+
 	if hc.ExpectedStatus < 100 || hc.ExpectedStatus > 599 {
-		return fmt.Errorf("expected_status should be a valid HTTP status code")
+		return fmt.Errorf("health_check.expected_status should be a valid HTTP status code (100-599)")
 	}
+
 	return nil
 }
 
