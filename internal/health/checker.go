@@ -45,6 +45,7 @@ func (hc *HealthChecker) checkBackend() {
 			defer resp.Body.Close()
 		}()
 	}
+	wg.Wait()
 }
 
 func (hc *HealthChecker) updateHealthStatus(backend *config.Backend, err error) {
