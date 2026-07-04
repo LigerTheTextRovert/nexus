@@ -39,12 +39,12 @@ type Route struct {
 }
 
 type HealthCheck struct {
-	Path               string        `yam:"path"`
-	Interval           time.Duration `yam:"interval"`
-	Timeout            time.Duration `yam:"timeout"`
-	HealthyThreshold   int           `yam:"healthy_threshold"`
-	UnhealthyThreshold int           `yam:"unhealthy_threshold"`
-	ExpectedStatus     int           `yam:"expected_status"`
+	Path               string        `yaml:"path"`
+	Interval           time.Duration `yaml:"interval"`
+	Timeout            time.Duration `yaml:"timeout"`
+	HealthyThreshold   int           `yaml:"healthy_threshold"`
+	UnhealthyThreshold int           `yaml:"unhealthy_threshold"`
+	ExpectedStatus     int           `yaml:"expected_status"`
 }
 
 type Config struct {
