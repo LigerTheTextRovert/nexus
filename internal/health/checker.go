@@ -23,8 +23,8 @@ func extractBackends(c *config.Config) []config.Backend {
 	return backends
 }
 
-func NewHealthChecker(c *config.Config) HealthChecker {
-	return HealthChecker{
+func NewHealthChecker(c *config.Config) *HealthChecker {
+	return &HealthChecker{
 		Config:   *c.HealthCheck,
 		Backends: extractBackends(c),
 
