@@ -38,16 +38,26 @@ func (hc *HealthChecker) checkBackend() {
 	var wg sync.WaitGroup
 	wg.Add(len(hc.Backends))
 	for i := 0; i < len(hc.Backends); i++ {
+		wg.Wait()
 		go func() {
 			defer wg.Done()
 			resp, err := hc.client.Get(hc.Backends[i].URL + hc.Config.Path)
-			if err != nil {
-				hc.Backends[i].Failures.Add(1)
-				return
-			}
-			hc.Backends[i].Successes.Add(1)
+			hc.updateHealthStatus(&hc.Backends[i], err)
 			defer resp.Body.Close()
 		}()
+	}
+}
+
+func (hc *HealthChecker) updateHealthStatus(backend *config.Backend, err error) {
+	if err != nil {
+		backend.Failures.Add(1)
+		return
+	}
+	backend.Successes.Add(1)
+	if backend.Failures.Load() > int32(hc.Config.UnhealthyThreshold) {
+		backend.IsHealthy.Store(false)
+	} else {
+		backend.IsHealthy.Store(false)
 	}
 }
 
