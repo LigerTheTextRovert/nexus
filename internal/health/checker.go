@@ -11,16 +11,16 @@ import (
 
 type HealthChecker struct {
 	Config   config.HealthCheck
-	Backends []config.Backend
+	Backends *[]config.Backend
 	client   http.Client
 }
 
-func extractBackends(c *config.Config) []config.Backend {
+func extractBackends(c *config.Config) *[]config.Backend {
 	var backends []config.Backend
 	for _, route := range c.Routes {
 		backends = append(backends, route.BackendURL...)
 	}
-	return backends
+	return &backends
 }
 
 func NewHealthChecker(c *config.Config) *HealthChecker {
