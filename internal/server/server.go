@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/LigerTheTextRovert/nexus/internal/config"
+	"github.com/LigerTheTextRovert/nexus/internal/health"
 	"github.com/LigerTheTextRovert/nexus/internal/logging"
 	"github.com/LigerTheTextRovert/nexus/internal/proxy"
 	ratelimit "github.com/LigerTheTextRovert/nexus/internal/rate-limit"
@@ -48,6 +49,16 @@ func New(c *config.Config) (*Server, error) {
 		ReadTimeout:  10 * time.Second,
 		WriteTimeout: 10 * time.Second,
 		IdleTimeout:  60 * time.Second,
+	}
+
+	if checker := health.NewHealthChecker(c); checker != nil {
+		go checker.Start(ctx)
+		slog.Info("health checker started",
+			"backends", len(checker.Backends),
+			"path", checker.Config.Path,
+			"interval", checker.Config.Interval.String(),
+			"timeout", checker.Config.Timeout.String(),
+		)
 	}
 
 	return s, nil
