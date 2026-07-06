@@ -112,3 +112,78 @@ func TestLoadBalancer_RoundRobin_Concurrent(t *testing.T) {
 		t.Errorf("total hit count mismatch: got %d, expected %d", got, total)
 	}
 }
+
+func TestLoadBalancer_SkipsUnhealthyBackends(t *testing.T) {
+	var unhealthyHits atomic.Int64
+	var healthyHits atomic.Int64
+
+	unhealthyBackend := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		unhealthyHits.Add(1)
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer unhealthyBackend.Close()
+
+	healthyBackend := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		healthyHits.Add(1)
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer healthyBackend.Close()
+
+	backends := []config.Backend{
+		{URL: unhealthyBackend.URL},
+		{URL: healthyBackend.URL},
+	}
+	lb, err := NewLoadBalancerHandler(backends, "/api", false)
+	if err != nil {
+		t.Fatalf("NewLoadBalancerHandler: %v", err)
+	}
+	backends[0].IsHealthy.Store(false)
+
+	for range 5 {
+		req := httptest.NewRequest(http.MethodGet, "/api/test", nil)
+		rr := httptest.NewRecorder()
+		lb.ServeHTTP(rr, req)
+		if rr.Code != http.StatusOK {
+			t.Fatalf("expected %d, got %d", http.StatusOK, rr.Code)
+		}
+	}
+
+	if unhealthyHits.Load() != 0 {
+		t.Errorf("unhealthy backend received %d requests", unhealthyHits.Load())
+	}
+	if healthyHits.Load() != 5 {
+		t.Errorf("healthy backend received %d requests, expected 5", healthyHits.Load())
+	}
+}
+
+func TestLoadBalancer_AllBackendsUnhealthy(t *testing.T) {
+	backend0 := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer backend0.Close()
+
+	backend1 := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer backend1.Close()
+
+	backends := []config.Backend{
+		{URL: backend0.URL},
+		{URL: backend1.URL},
+	}
+	lb, err := NewLoadBalancerHandler(backends, "/api", false)
+	if err != nil {
+		t.Fatalf("NewLoadBalancerHandler: %v", err)
+	}
+	for i := range backends {
+		backends[i].IsHealthy.Store(false)
+	}
+
+	req := httptest.NewRequest(http.MethodGet, "/api/test", nil)
+	rr := httptest.NewRecorder()
+	lb.ServeHTTP(rr, req)
+
+	if rr.Code != http.StatusServiceUnavailable {
+		t.Errorf("expected %d, got %d", http.StatusServiceUnavailable, rr.Code)
+	}
+}
