@@ -11,16 +11,24 @@ import (
 
 type HealthChecker struct {
 	Config   config.HealthCheck
-	Backends *[]config.Backend
+	Backends []*config.Backend
 	client   http.Client
 }
 
-func extractBackends(c *config.Config) *[]config.Backend {
-	var backends []config.Backend
+func extractBackends(c *config.Config) []*config.Backend {
+	// Count total backends first
+	total := 0
 	for _, route := range c.Routes {
-		backends = append(backends, route.BackendURL...)
+		total += len(route.BackendURL)
 	}
-	return &backends
+
+	backends := make([]*config.Backend, 0, total)
+	for _, route := range c.Routes {
+		for i := range route.BackendURL {
+			backends = append(backends, &route.BackendURL[i])
+		}
+	}
+	return backends
 }
 
 func NewHealthChecker(c *config.Config) *HealthChecker {
