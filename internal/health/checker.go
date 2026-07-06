@@ -2,6 +2,7 @@ package health
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"sync"
 	"time"
@@ -45,13 +46,33 @@ func NewHealthChecker(c *config.Config) *HealthChecker {
 func (hc *HealthChecker) checkBackend() {
 	var wg sync.WaitGroup
 	wg.Add(len(hc.Backends))
-	for i := 0; i < len(hc.Backends); i++ {
-		go func(i int) {
+
+	for i := range hc.Backends {
+		go func(backend *config.Backend) {
 			defer wg.Done()
-			resp, err := hc.client.Get(hc.Backends[i].URL + hc.Config.Path)
-			hc.updateHealthStatus(hc.Backends[i], err)
+
+			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+			defer cancel()
+
+			req, err := http.NewRequestWithContext(ctx, "GET", backend.URL+hc.Config.Path, nil)
+			if err != nil {
+				hc.updateHealthStatus(backend, err)
+				return
+			}
+
+			resp, err := hc.client.Do(req)
+			if err != nil {
+				hc.updateHealthStatus(backend, err)
+				return
+			}
 			defer resp.Body.Close()
-		}(i)
+
+			if resp.StatusCode >= 200 && resp.StatusCode < 300 {
+				hc.updateHealthStatus(backend, nil)
+			} else {
+				hc.updateHealthStatus(backend, fmt.Errorf("unhealthy status: %d", resp.StatusCode))
+			}
+		}(hc.Backends[i])
 	}
 	wg.Wait()
 }
