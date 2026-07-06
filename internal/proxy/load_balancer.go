@@ -13,8 +13,9 @@ import (
 )
 
 type Backend struct {
-	URL   *url.URL
-	proxy *httputil.ReverseProxy
+	URL     *url.URL
+	proxy   *httputil.ReverseProxy
+	backend *config.Backend
 }
 
 type LoadBalancer struct {
@@ -27,14 +28,18 @@ type LoadBalancer struct {
 func NewLoadBalancerHandler(backends []config.Backend, path string, stripPrefix bool) (*LoadBalancer, error) {
 	backs := make([]Backend, 0, len(backends))
 
-	for _, b := range backends {
-		targetURL, err := url.Parse(b.URL)
+	for i := range backends {
+		backend := &backends[i]
+		backend.IsHealthy.Store(true)
+
+		targetURL, err := url.Parse(backend.URL)
 		if err != nil {
-			return nil, fmt.Errorf("failed to parse backend URL %q: %w", b.URL, err)
+			return nil, fmt.Errorf("failed to parse backend URL %q: %w", backend.URL, err)
 		}
 		backs = append(backs, Backend{
-			URL:   targetURL,
-			proxy: NewReverseProxy(targetURL),
+			URL:     targetURL,
+			proxy:   NewReverseProxy(targetURL),
+			backend: backend,
 		})
 	}
 
@@ -51,14 +56,12 @@ func NewLoadBalancerHandler(backends []config.Backend, path string, stripPrefix 
 }
 
 func (lb *LoadBalancer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	if len(lb.backends) == 0 {
-		slog.Error("no backends available", "path", r.URL.Path, "method", r.Method)
-		http.Error(w, "no backend available", http.StatusServiceUnavailable)
+	backend, ok := lb.nextHealthyBackend()
+	if !ok {
+		slog.Error("no healthy backends available", "path", r.URL.Path, "method", r.Method)
+		http.Error(w, "no healthy backend available", http.StatusServiceUnavailable)
 		return
 	}
-
-	// Theard safe round robin backend selection
-	current := (lb.counter.Add(1) - 1) % uint64(len(lb.backends))
 
 	if lb.stripPrefix {
 		trimmed := strings.TrimPrefix(r.URL.Path, lb.path)
@@ -70,5 +73,29 @@ func (lb *LoadBalancer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		r.URL.Path = trimmed
 	}
 
-	lb.backends[current].proxy.ServeHTTP(w, r)
+	backend.proxy.ServeHTTP(w, r)
+}
+
+func (lb *LoadBalancer) nextHealthyBackend() (*Backend, bool) {
+	if len(lb.backends) == 0 {
+		return nil, false
+	}
+
+	for range lb.backends {
+		// Thread-safe round-robin backend selection.
+		current := (lb.counter.Add(1) - 1) % uint64(len(lb.backends))
+		backend := &lb.backends[current]
+		if backend.isHealthy() {
+			return backend, true
+		}
+	}
+
+	return nil, false
+}
+
+func (b *Backend) isHealthy() bool {
+	if b.backend == nil {
+		return true
+	}
+	return b.backend.IsHealthy.Load()
 }
