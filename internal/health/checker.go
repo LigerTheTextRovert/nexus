@@ -3,6 +3,7 @@ package health
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"net/http"
 	"sync"
 	"time"
@@ -33,6 +34,10 @@ func extractBackends(c *config.Config) []*config.Backend {
 }
 
 func NewHealthChecker(c *config.Config) *HealthChecker {
+	if c.HealthCheck == nil {
+		return nil
+	}
+
 	return &HealthChecker{
 		Config:   *c.HealthCheck,
 		Backends: extractBackends(c),
@@ -43,7 +48,7 @@ func NewHealthChecker(c *config.Config) *HealthChecker {
 	}
 }
 
-func (hc *HealthChecker) checkBackend() {
+func (hc *HealthChecker) checkBackend(ctx context.Context) {
 	var wg sync.WaitGroup
 	wg.Add(len(hc.Backends))
 
@@ -51,10 +56,10 @@ func (hc *HealthChecker) checkBackend() {
 		go func(backend *config.Backend) {
 			defer wg.Done()
 
-			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+			checkCtx, cancel := context.WithTimeout(ctx, hc.Config.Timeout)
 			defer cancel()
 
-			req, err := http.NewRequestWithContext(ctx, "GET", backend.URL+hc.Config.Path, nil)
+			req, err := http.NewRequestWithContext(checkCtx, http.MethodGet, backend.URL+hc.Config.Path, nil)
 			if err != nil {
 				hc.updateHealthStatus(backend, err)
 				return
@@ -67,7 +72,7 @@ func (hc *HealthChecker) checkBackend() {
 			}
 			defer resp.Body.Close()
 
-			if resp.StatusCode >= 200 && resp.StatusCode < 300 {
+			if resp.StatusCode == hc.Config.ExpectedStatus {
 				hc.updateHealthStatus(backend, nil)
 			} else {
 				hc.updateHealthStatus(backend, fmt.Errorf("unhealthy status: %d", resp.StatusCode))
@@ -84,7 +89,9 @@ func (hc *HealthChecker) updateHealthStatus(backend *config.Backend, err error) 
 		failures := backend.Failures.Add(1)
 
 		if failures >= int32(hc.Config.UnhealthyThreshold) {
-			backend.IsHealthy.Store(false)
+			if backend.IsHealthy.Swap(false) {
+				slog.Warn("backend became unhealthy", "backend", backend.URL, "err", err)
+			}
 			backend.Failures.Store(0)
 		}
 
@@ -95,22 +102,29 @@ func (hc *HealthChecker) updateHealthStatus(backend *config.Backend, err error) 
 	successes := backend.Successes.Add(1)
 
 	if successes >= int32(hc.Config.HealthyThreshold) {
-		backend.IsHealthy.Store(true)
+		if !backend.IsHealthy.Swap(true) {
+			slog.Info("backend recovered", "backend", backend.URL)
+		}
 		backend.Successes.Store(0)
 	}
 }
 
 func (hc *HealthChecker) Start(ctx context.Context) {
+	if hc == nil {
+		return
+	}
+
+	hc.checkBackend(ctx)
+
 	ticker := time.NewTicker(hc.Config.Interval)
 	defer ticker.Stop()
 
 	for {
 		select {
 		case <-ticker.C:
-			hc.checkBackend()
+			hc.checkBackend(ctx)
 		case <-ctx.Done():
 			return
 		}
-
 	}
 }
