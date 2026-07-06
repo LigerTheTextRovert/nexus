@@ -49,7 +49,7 @@ func (hc *HealthChecker) checkBackend() {
 		go func(i int) {
 			defer wg.Done()
 			resp, err := hc.client.Get(hc.Backends[i].URL + hc.Config.Path)
-			hc.updateHealthStatus(hc.backend[i].URL, err)
+			hc.updateHealthStatus(hc.Backends[i], err)
 			defer resp.Body.Close()
 		}(i)
 	}
