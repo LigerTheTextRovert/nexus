@@ -12,6 +12,26 @@
 
 ---
 
+## Navigation
+
+- [Architecture](#architecture)
+  - [Project Layout](#project-layout)
+- [Features](#features)
+- [Configuration](#configuration)
+  - [Validation Rules](#validation-rules)
+- [How It Works](#how-it-works)
+  - [Startup Flow](#startup-flow)
+  - [Request Lifecycle](#request-lifecycle)
+- [Getting Started](#getting-started)
+  - [Prerequisites](#prerequisites)
+  - [Run the gateway only](#run-the-gateway-only)
+  - [Run demo upstreams and gateway](#run-demo-upstreams-and-gateway)
+  - [Build](#build)
+  - [Test](#test)
+- [Used Libraries](#used-libraries)
+
+---
+
 ## Architecture
 
 ```
