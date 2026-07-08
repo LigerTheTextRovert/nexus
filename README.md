@@ -1,8 +1,14 @@
-# Nexus
+<p align="center">
+  <img src="assets/logo.png" alt="Nexus Logo" width="180">
+</p>
+
+<h1 align="center">Nexus</h1>
+
+<p align="center">
+    A lightweight HTTP API gateway / reverse proxy written in Go. Nexus sits in front of backend services and routes incoming HTTP requests to upstreams based on a YAML configuration file.
+</p>
 
 > /ˈneksəs/ — A connection or series of connections linking two or more things
-
-A lightweight HTTP API gateway / reverse proxy written in Go. Nexus sits in front of backend services and routes incoming HTTP requests to upstreams based on a YAML configuration file.
 
 ---
 
@@ -127,24 +133,24 @@ The top-level `health_check` section enables active backend probing. Nexus calls
 
 ### Validation Rules
 
-| Field | Rule |
-|---|---|
-| `port` | Must be between 1 and 65535 |
-| `routes` | At least one route is required |
-| `path` | Must be non-empty and start with `/` |
-| Duplicate route paths | Rejected at startup |
-| `methods` | At least one method is required; valid values are `GET`, `POST`, `PUT`, `DELETE`, `PATCH` |
-| `backends` | At least one backend is required |
-| `backends[].url` | Must be a valid URI with `http` or `https` scheme and a non-empty host |
-| `rate_limit.requests` | Optional; when present, must be > 0 |
-| `rate_limit.per` | Optional; when present, must parse as a positive Go duration such as `1m` or `30s` |
-| `timeout` | Optional; when present, must parse as a positive Go duration |
-| `health_check.path` | Optional top-level section; when present, path must be non-empty and start with `/` |
-| `health_check.interval` | Must be greater than `0` and greater than `health_check.timeout` |
-| `health_check.timeout` | Must be greater than `0` |
-| `health_check.healthy_threshold` | Must be at least `1` |
-| `health_check.unhealthy_threshold` | Must be at least `1` |
-| `health_check.expected_status` | Must be a valid HTTP status code (`100`-`599`) |
+| Field                              | Rule                                                                                      |
+| ---------------------------------- | ----------------------------------------------------------------------------------------- |
+| `port`                             | Must be between 1 and 65535                                                               |
+| `routes`                           | At least one route is required                                                            |
+| `path`                             | Must be non-empty and start with `/`                                                      |
+| Duplicate route paths              | Rejected at startup                                                                       |
+| `methods`                          | At least one method is required; valid values are `GET`, `POST`, `PUT`, `DELETE`, `PATCH` |
+| `backends`                         | At least one backend is required                                                          |
+| `backends[].url`                   | Must be a valid URI with `http` or `https` scheme and a non-empty host                    |
+| `rate_limit.requests`              | Optional; when present, must be > 0                                                       |
+| `rate_limit.per`                   | Optional; when present, must parse as a positive Go duration such as `1m` or `30s`        |
+| `timeout`                          | Optional; when present, must parse as a positive Go duration                              |
+| `health_check.path`                | Optional top-level section; when present, path must be non-empty and start with `/`       |
+| `health_check.interval`            | Must be greater than `0` and greater than `health_check.timeout`                          |
+| `health_check.timeout`             | Must be greater than `0`                                                                  |
+| `health_check.healthy_threshold`   | Must be at least `1`                                                                      |
+| `health_check.unhealthy_threshold` | Must be at least `1`                                                                      |
+| `health_check.expected_status`     | Must be a valid HTTP status code (`100`-`599`)                                            |
 
 ---
 
@@ -240,10 +246,10 @@ go test -race -v ./...
 
 ## Used Libraries
 
-| Library | Purpose |
-|---|---|
-| [go-chi/chi/v5](https://github.com/go-chi/chi) | Lightweight HTTP router with middleware support |
-| [gopkg.in/yaml.v3](https://pkg.go.dev/gopkg.in/yaml.v3) | YAML config file parsing |
-| [golang.org/x/time/rate](https://pkg.go.dev/golang.org/x/time/rate) | Token bucket rate limiter |
+| Library                                                             | Purpose                                         |
+| ------------------------------------------------------------------- | ----------------------------------------------- |
+| [go-chi/chi/v5](https://github.com/go-chi/chi)                      | Lightweight HTTP router with middleware support |
+| [gopkg.in/yaml.v3](https://pkg.go.dev/gopkg.in/yaml.v3)             | YAML config file parsing                        |
+| [golang.org/x/time/rate](https://pkg.go.dev/golang.org/x/time/rate) | Token bucket rate limiter                       |
 
 Most other functionality uses the Go standard library (`net/http`, `net/http/httputil`, `context`, `log/slog`, `os/signal`, `sync`, `sync/atomic`).
