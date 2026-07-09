@@ -16,7 +16,7 @@ import (
 	"github.com/LigerTheTextRovert/nexus/internal/health"
 	"github.com/LigerTheTextRovert/nexus/internal/logging"
 	"github.com/LigerTheTextRovert/nexus/internal/proxy"
-	ratelimit "github.com/LigerTheTextRovert/nexus/internal/rate-limit"
+	rate_limit "github.com/LigerTheTextRovert/nexus/internal/rate_limit"
 	"github.com/go-chi/chi/middleware"
 	"github.com/go-chi/chi/v5"
 )
@@ -86,7 +86,7 @@ func (s *Server) registerRoute(mux chi.Router, route config.Route) error {
 		return fmt.Errorf("failed to create load balancer for route %q: %w", route.Path, err)
 	}
 
-	var manager *ratelimit.RateLimiterManager
+	var manager *rate_limit.RateLimiterManager
 
 	if rl := route.RateLimit; rl != nil {
 		per, err := time.ParseDuration(rl.Per)
@@ -94,7 +94,7 @@ func (s *Server) registerRoute(mux chi.Router, route config.Route) error {
 			return fmt.Errorf("invalid rate limit duration for route %q: %w", route.Path, err)
 		}
 
-		manager, err = ratelimit.NewManager(
+		manager, err = rate_limit.NewManager(
 			rl.Requests,
 			per,
 			time.Minute,
